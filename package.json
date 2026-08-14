@@ -1,7 +1,30 @@
 {
   "name": "campus-gig-backend",
   "version": "1.0.0",
-  "description": "CampusGig Backend",
+  "description": "Production-ready REST API and real-time Socket.IO backend for CampusGig — a college student freelancing and peer-to-peer gig marketplace.",
+  "author": "not-a-hack-er <akarshbajpai99@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/not-a-hack-er/campus_gig-backend.git"
+  },
+  "bugs": {
+    "url": "https://github.com/not-a-hack-er/campus_gig-backend/issues"
+  },
+  "homepage": "https://github.com/not-a-hack-er/campus_gig-backend#readme",
+  "keywords": [
+    "campus-gig",
+    "student-freelancing",
+    "college-marketplace",
+    "express",
+    "nodejs",
+    "mongodb",
+    "socketio",
+    "realtime-chat",
+    "redis",
+    "jwt-auth",
+    "rest-api"
+  ],
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
