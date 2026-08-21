@@ -143,7 +143,7 @@ app.use(globalLimiter);
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
-    message: "CampusGig Backend Running",
+    message: "CampusVault Backend Running",
     env:     env.NODE_ENV,
     version: "1.0.0",
   });

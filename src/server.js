@@ -1,5 +1,5 @@
 // ============================================================
-// server.js — Entry point of the CampusGig backend
+// server.js — Entry point of the CampusVault backend
 //
 // What this file does:
 //   1. Connects to MongoDB

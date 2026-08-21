@@ -65,14 +65,14 @@ const sendOtpEmail = async (toEmail, otp) => {
   }
 
   const mailOptions = {
-    from:    `"CampusGig" <${process.env.EMAIL_USER}>`,
+    from:    `"CampusVault" <${process.env.EMAIL_USER}>`,
     to:      toEmail,
-    subject: "🔑 Your CampusGig Password Reset OTP",
+    subject: "🔑 Your CampusVault Password Reset OTP",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; border: 1px solid #e0e0e0; border-radius: 8px;">
         <h2 style="color: #1a1a2e; margin-bottom: 8px;">Password Reset Request</h2>
         <p style="color: #444; line-height: 1.6;">
-          We received a request to reset your <strong>CampusGig</strong> account password.
+          We received a request to reset your <strong>CampusVault</strong> account password.
           Use the OTP below to proceed. This code expires in <strong>15 minutes</strong>.
         </p>
         <div style="background: #f5f5f5; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
@@ -83,7 +83,7 @@ const sendOtpEmail = async (toEmail, otp) => {
           Your password will not be changed.
         </p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-        <p style="color: #bbb; font-size: 12px; text-align: center;">CampusGig — Student Gig Marketplace</p>
+        <p style="color: #bbb; font-size: 12px; text-align: center;">CampusVault — Student Marketplace</p>
       </div>
     `,
   };
