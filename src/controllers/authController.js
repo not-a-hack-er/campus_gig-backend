@@ -5,7 +5,7 @@
 // All actual business logic lives in authService.js.
 // ============================================================
 
-const { registerUser, loginUser, googleAuthUser } = require("../services/authService");
+const { registerUser, loginUser, googleAuthUser, forgotPassword, verifyOtp, resetPassword } = require("../services/authService");
 const ApiResponse = require("../utils/ApiResponse");
 
 // POST /api/auth/register
@@ -42,4 +42,40 @@ const googleLogin = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, googleLogin };
+// POST /api/auth/forgot-password
+// Step 1: User enters their email — backend generates and emails a 6-digit OTP.
+// Always returns success to prevent email enumeration.
+const forgotPasswordController = async (req, res, next) => {
+  try {
+    const result = await forgotPassword(req.body.email);
+    return res.status(200).json(new ApiResponse(true, result.message, null));
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/auth/verify-otp
+// Step 2: User submits email + OTP — backend validates and returns a short-lived resetToken.
+const verifyOtpController = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    const result = await verifyOtp(email, otp);
+    return res.status(200).json(new ApiResponse(true, "OTP verified", result));
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/auth/reset-password
+// Step 3: User submits resetToken + new password — backend sets the new password.
+const resetPasswordController = async (req, res, next) => {
+  try {
+    const { resetToken, newPassword } = req.body;
+    const result = await resetPassword(resetToken, newPassword);
+    return res.status(200).json(new ApiResponse(true, result.message, null));
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { register, login, googleLogin, forgotPasswordController, verifyOtpController, resetPasswordController };

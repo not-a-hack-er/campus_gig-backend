@@ -119,9 +119,9 @@ app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 // to prevent attackers from injecting MongoDB operator keys into queries.
 app.use(mongoSanitize());
 
-// Serve uploaded files (profile pictures) as static files.
+// Serve uploaded files (profile pictures, resumes) as static files.
 // Only used when CLOUDINARY_URL is not set (local dev mode).
-// In production with Cloudinary, avatars are served directly from the CDN.
+// In production with Cloudinary, files are served directly from the CDN.
 if (!env.CLOUDINARY_URL) {
   app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 }

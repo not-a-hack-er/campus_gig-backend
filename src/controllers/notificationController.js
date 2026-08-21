@@ -9,6 +9,7 @@ const {
   getNotifications,
   markAsRead,
   markAllAsRead,
+  getUnreadCount,
 } = require("../services/notificationService");
 
 // GET /api/notifications — Get all notifications for the logged-in user
@@ -42,8 +43,20 @@ const markAllNotificationsReadController = async (req, res, next) => {
   }
 };
 
+// GET /api/notifications/unread-count — Count of unread notifications
+// The app calls this on load / resume to decide whether to show the red dot.
+const getUnreadCountController = async (req, res, next) => {
+  try {
+    const result = await getUnreadCount(req.user.id);
+    return res.status(200).json({ success: true, message: "Unread count", data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getNotificationsController,
   markAsReadController,
   markAllNotificationsReadController,
+  getUnreadCountController,
 };

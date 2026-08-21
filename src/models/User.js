@@ -43,6 +43,9 @@ const userSchema = new mongoose.Schema(
     // ── Skills ──────────────────────────────────────────────
     skills: { type: [String], default: [] }, // Array of skill strings
 
+    // ── Resume ──────────────────────────────────────────────
+    resumeUrl: { type: String, default: "" }, // URL to uploaded resume (PDF/DOC)
+
     // ── Social Links ────────────────────────────────────────
     github:    { type: String, default: "" },
     linkedin:  { type: String, default: "" },
@@ -57,6 +60,12 @@ const userSchema = new mongoose.Schema(
     // ── Account Status ──────────────────────────────────────
     isVerified: { type: Boolean, default: false },
     isActive:   { type: Boolean, default: true },
+
+    // ── Password Reset (Forgot Password OTP) ────────────────
+    // These fields are hidden from all queries by default (select: false).
+    // They are only fetched internally when processing a password reset.
+    passwordResetOtp:    { type: String,  select: false }, // bcrypt-hashed 6-digit OTP
+    passwordResetOtpExpiry: { type: Date, select: false }, // OTP valid until this timestamp
   },
   {
     timestamps: true, // Adds createdAt and updatedAt fields automatically

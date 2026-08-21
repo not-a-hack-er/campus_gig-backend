@@ -81,4 +81,12 @@ const markAllAsRead = async (userId) => {
   return { message: "All notifications marked as read" };
 };
 
-module.exports = { createNotification, getNotifications, markAsRead, markAllAsRead };
+// Get the count of unread notifications for a user
+// Used by the mobile app to control whether to show the red dot / badge.
+// Returns 0 if there are no unread notifications.
+const getUnreadCount = async (userId) => {
+  const count = await Notification.countDocuments({ recipient: userId, isRead: false });
+  return { unreadCount: count };
+};
+
+module.exports = { createNotification, getNotifications, markAsRead, markAllAsRead, getUnreadCount };

@@ -84,6 +84,15 @@ describe('PUT /api/users/me', () => {
     expect(res.body.portfolio).toBe('https://mysite.com');
   });
 
+  test('updates resumeUrl field', async () => {
+    const res = await request(app)
+      .put('/api/users/me')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ resumeUrl: 'https://drive.google.com/my-resume.pdf' });
+    expect(res.status).toBe(200);
+    expect(res.body.resumeUrl).toBe('https://drive.google.com/my-resume.pdf');
+  });
+
   test('returns 400 with no valid fields', async () => {
     const res = await request(app)
       .put('/api/users/me')

@@ -8,7 +8,7 @@
 
 const ApiResponse = require("../utils/ApiResponse");
 const ApiError    = require("../utils/ApiError");
-const { handleAvatarUpload } = require("../middleware/upload");
+const { handleAvatarUpload, handleResumeUpload } = require("../middleware/upload");
 const userService = require("../services/userService");
 
 // GET /api/users/me — Get logged-in user profile
@@ -45,6 +45,32 @@ const uploadAvatarController = async (req, res, next) => {
 
     return res.status(200).json(
       new ApiResponse(true, "Profile picture updated successfully", { avatarUrl, user })
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/users/me/resume — Upload a resume (PDF, DOC, DOCX)
+// The uploaded file URL is saved to the user's resumeUrl field.
+const uploadResumeController = async (req, res, next) => {
+  try {
+    await handleResumeUpload(req, res);
+
+    if (!req.file) {
+      throw new ApiError(400, 'No file received. Send the PDF/DOC as a multipart field named "resume".');
+    }
+
+    // Cloudinary returns req.file.path as the CDN URL;
+    // local disk storage uses req.file.filename which we build into a full URL.
+    const resumeUrl = req.file.path
+      ? req.file.path  // Cloudinary secure URL
+      : `${req.protocol}://${req.get("host")}/uploads/resumes/${req.file.filename}`;
+
+    const user = await userService.updateUserProfile(req.user.id, { resumeUrl });
+
+    return res.status(200).json(
+      new ApiResponse(true, "Resume uploaded successfully", { resumeUrl, user })
     );
   } catch (error) {
     next(error);
@@ -148,6 +174,7 @@ module.exports = {
   getMyProfileController,
   updateMyProfileController,
   uploadAvatarController,
+  uploadResumeController,
   changePasswordController,
   getMyStatsController,
   getMyGigsController,

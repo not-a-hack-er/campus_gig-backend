@@ -89,7 +89,7 @@ const uploadAvatar = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // Max 5 MB regardless of backend
 }).single("avatar"); // Expect one file in the "avatar" form field
 
-// ─── Promise Wrapper ──────────────────────────────────────────────────────────
+// ─── Promise Wrapper (Avatar) ─────────────────────────────────────────────────
 // Wraps multer in a Promise so controllers can use async/await + try/catch.
 const handleAvatarUpload = (req, res) => {
   return new Promise((resolve, reject) => {
@@ -106,4 +106,77 @@ const handleAvatarUpload = (req, res) => {
   });
 };
 
-module.exports = { handleAvatarUpload };
+// ─── Resume Upload ────────────────────────────────────────────────────────────
+// Accepts PDF, DOC, DOCX files up to 10 MB.
+// Uses Cloudinary (raw resource type) in production, local disk in development.
+
+const resumeFileFilter = (req, file, cb) => {
+  const allowedTypes = [
+    "application/pdf",
+    "application/msword",                                                      // .doc
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+  ];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new ApiError(400, "Only PDF, DOC, and DOCX files are accepted for resumes"), false);
+  }
+};
+
+let resumeStorage;
+
+if (env.CLOUDINARY_URL) {
+  // Upload resume to Cloudinary as a raw (non-image) resource
+  const cloudinary      = require("cloudinary").v2;
+  const { CloudinaryStorage } = require("multer-storage-cloudinary");
+
+  cloudinary.config({ cloudinary_url: env.CLOUDINARY_URL });
+
+  resumeStorage = new CloudinaryStorage({
+    cloudinary,
+    params: async (req, file) => ({
+      folder:        "campus-gig/resumes",
+      public_id:     `resume-${req.user.id}-${Date.now()}`,
+      resource_type: "raw",   // Required for non-image files (PDF, DOC, DOCX)
+    }),
+  });
+} else {
+  // Local disk fallback for development
+  const fs = require("fs");
+  const resumeDir = path.join(__dirname, "../../uploads/resumes");
+  if (!fs.existsSync(resumeDir)) fs.mkdirSync(resumeDir, { recursive: true });
+
+  resumeStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, resumeDir);
+    },
+    filename: (req, file, cb) => {
+      const extension = path.extname(file.originalname).toLowerCase() || ".pdf";
+      cb(null, `resume-${req.user.id}-${Date.now()}${extension}`);
+    },
+  });
+}
+
+const uploadResume = multer({
+  storage: resumeStorage,
+  fileFilter: resumeFileFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }, // Max 10 MB for resumes
+}).single("resume"); // Expect one file in the "resume" form field
+
+// Promise wrapper for resume upload
+const handleResumeUpload = (req, res) => {
+  return new Promise((resolve, reject) => {
+    uploadResume(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          return reject(new ApiError(400, "Resume file too large. Maximum size is 10 MB."));
+        }
+        return reject(new ApiError(400, `Resume upload error: ${err.message}`));
+      }
+      if (err) return reject(err);
+      resolve();
+    });
+  });
+};
+
+module.exports = { handleAvatarUpload, handleResumeUpload };

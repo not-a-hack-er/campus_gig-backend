@@ -230,6 +230,25 @@ const updateApplicationStatus = async (applicationId, status, callerUserId) => {
       application.gig._id,
       { $inc: { applicationsCount: -1 } }
     );
+
+    // Notify the gig poster that this applicant has withdrawn
+    try {
+      const gigTitle    = application.gig?.title || "your gig";
+      const posterId    = gigOwnerId.toString();
+      const applicantName = application.applicant?.name || "An applicant";
+      await createNotification(
+        posterId,
+        "Application Withdrawn",
+        `${applicantName} has withdrawn their application for "${gigTitle}".`,
+        {
+          type:          "application_withdrawn",
+          referenceId:   applicationId.toString(),
+          referenceType: "Application",
+        }
+      );
+    } catch (notifError) {
+      console.error("[updateApplicationStatus] Withdrawal notification error:", notifError.message);
+    }
   } else {
     // REJECTED or PENDING — just update the application
     application.status = status;

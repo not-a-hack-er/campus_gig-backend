@@ -11,9 +11,11 @@ const {
   getNotificationsController,
   markAsReadController,
   markAllNotificationsReadController,
+  getUnreadCountController,
 } = require("../controllers/notificationController");
 
 router.get("/",                       protect, getNotificationsController);        // Get all notifications
+router.get("/unread-count",           protect, getUnreadCountController);           // Count of unread notifications (for badge/dot)
 router.put("/read-all",               protect, markAllNotificationsReadController); // Mark all as read
 router.patch("/:notificationId/read", protect, markAsReadController);              // Mark one as read
 router.put("/:notificationId/read",   protect, markAsReadController);              // Same (supports both PUT and PATCH)

@@ -9,6 +9,10 @@ const User     = require("../models/User");
 const ApiError = require("../utils/ApiError");
 const { env }  = require("../config/env");
 const { hashPassword, comparePassword, generateToken } = require("./authUtils");
+const { sendOtpEmail } = require("../utils/emailService");
+const bcrypt   = require("bcryptjs");
+const crypto   = require("crypto");
+const jwt      = require("jsonwebtoken");
 
 // Register a new user
 //
@@ -194,4 +198,132 @@ const googleAuthUser = async ({ idToken, name, email }) => {
   return { user: userObj, token };
 };
 
-module.exports = { registerUser, loginUser, googleAuthUser };
+module.exports = { registerUser, loginUser, googleAuthUser, forgotPassword, verifyOtp, resetPassword };
+
+// ─── Forgot Password — Step 1: Generate & Email OTP ───────────────────────────
+//
+// Generates a cryptographically random 6-digit OTP, bcrypt-hashes it
+// (same protection as passwords — brute-force resistant), stores it
+// on the user document with a 15-minute expiry, then sends it by email.
+//
+// SECURITY — No Email Enumeration:
+//   We always return a success response regardless of whether the email
+//   exists in the database.  This prevents attackers from discovering
+//   which email addresses are registered.
+async function forgotPassword(email) {
+  if (typeof email !== "string" || !email.trim()) {
+    throw new ApiError(400, "Email is required");
+  }
+
+  const normEmail = email.trim().toLowerCase();
+  const user = await User.findOne({ email: normEmail });
+
+  // Always respond with success — don't reveal if the email is registered
+  if (!user) return { message: "If that email is registered, an OTP has been sent." };
+
+  // Generate a 6-digit numeric OTP from a cryptographically secure source
+  const otp = String(crypto.randomInt(100000, 999999));
+
+  // Hash the OTP before storing (brute-force resistant, same as passwords)
+  const salt   = await bcrypt.genSalt(10);
+  const hashedOtp = await bcrypt.hash(otp, salt);
+
+  // Store the hashed OTP + 15-minute expiry window on the user document
+  user.passwordResetOtp       = hashedOtp;
+  user.passwordResetOtpExpiry = new Date(Date.now() + 15 * 60 * 1000); // +15 min
+  await user.save({ validateBeforeSave: false });
+
+  // Send plaintext OTP via email (or log to console if email not configured)
+  await sendOtpEmail(normEmail, otp);
+
+  return { message: "If that email is registered, an OTP has been sent." };
+}
+
+// ─── Forgot Password — Step 2: Verify OTP → Return Reset Token ───────────────
+//
+// Validates the email + OTP pair.  On success returns a short-lived JWT
+// that the app uses in Step 3 (reset-password).  The OTP is cleared
+// after one successful verification to prevent reuse.
+async function verifyOtp(email, otp) {
+  if (typeof email !== "string" || !email.trim()) {
+    throw new ApiError(400, "Email is required");
+  }
+  if (typeof otp !== "string" || !otp.trim()) {
+    throw new ApiError(400, "OTP is required");
+  }
+
+  const normEmail = email.trim().toLowerCase();
+
+  // Fetch the user INCLUDING the hidden OTP fields
+  const user = await User.findOne({ email: normEmail })
+    .select("+passwordResetOtp +passwordResetOtpExpiry");
+
+  // Generic error — don't tell the caller why verification failed
+  const INVALID = new ApiError(400, "Invalid or expired OTP");
+
+  if (!user || !user.passwordResetOtp || !user.passwordResetOtpExpiry) {
+    throw INVALID;
+  }
+
+  // Check expiry
+  if (user.passwordResetOtpExpiry < new Date()) {
+    // Clear stale OTP
+    user.passwordResetOtp       = undefined;
+    user.passwordResetOtpExpiry = undefined;
+    await user.save({ validateBeforeSave: false });
+    throw INVALID;
+  }
+
+  // Constant-time compare (bcrypt) to prevent timing attacks
+  const isMatch = await bcrypt.compare(otp.trim(), user.passwordResetOtp);
+  if (!isMatch) throw INVALID;
+
+  // OTP is valid — clear it immediately so it cannot be reused
+  user.passwordResetOtp       = undefined;
+  user.passwordResetOtpExpiry = undefined;
+  await user.save({ validateBeforeSave: false });
+
+  // Issue a short-lived reset token (15 min) that authorises Step 3
+  const resetToken = jwt.sign(
+    { userId: user._id.toString(), purpose: "password_reset" },
+    env.JWT_SECRET,
+    { expiresIn: "15m" }
+  );
+
+  return { resetToken };
+}
+
+// ─── Forgot Password — Step 3: Reset Password with Token ─────────────────────
+//
+// Accepts the short-lived resetToken issued by verifyOtp() and the
+// user's chosen new password.  Verifies the token, validates the new
+// password, and saves the bcrypt-hashed password.
+async function resetPassword(resetToken, newPassword) {
+  if (!resetToken) {
+    throw new ApiError(400, "Reset token is required");
+  }
+  if (typeof newPassword !== "string" || newPassword.length < 6) {
+    throw new ApiError(400, "New password must be at least 6 characters");
+  }
+
+  let payload;
+  try {
+    payload = jwt.verify(resetToken, env.JWT_SECRET);
+  } catch {
+    throw new ApiError(400, "Reset token is invalid or has expired. Please request a new OTP.");
+  }
+
+  if (payload.purpose !== "password_reset") {
+    throw new ApiError(400, "Invalid token type");
+  }
+
+  const user = await User.findById(payload.userId).select("+password");
+  if (!user) throw new ApiError(404, "User not found");
+
+  // Hash and save the new password
+  const salt = await bcrypt.genSalt(10);
+  user.password = await bcrypt.hash(newPassword, salt);
+  await user.save();
+
+  return { message: "Password reset successfully. You can now log in with your new password." };
+}

@@ -63,6 +63,23 @@ describe('GET /api/notifications', () => {
   });
 });
 
+describe('GET /api/notifications/unread-count', () => {
+  test('returns 401 without auth', async () => {
+    const res = await request(app).get('/api/notifications/unread-count');
+    expect(res.status).toBe(401);
+  });
+
+  test('returns unread notification count', async () => {
+    const res = await request(app)
+      .get('/api/notifications/unread-count')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(typeof res.body.data.unreadCount).toBe('number');
+    expect(res.body.data.unreadCount).toBeGreaterThanOrEqual(1);
+  });
+});
+
 describe('PATCH /api/notifications/:id/read', () => {
   test('marks a notification as read', async () => {
     const res = await request(app)

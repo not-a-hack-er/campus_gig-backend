@@ -7,10 +7,11 @@
 // ============================================================
 
 const ApiResponse = require("../utils/ApiResponse");
-const { createReview, getUserReviews } = require("../services/reviewService");
+const { createReview, getUserReviews, getGigReviews } = require("../services/reviewService");
 
 // POST /api/reviews/:userId — Leave a review for a user
-// The reviewedUser ID can be in the URL param OR in the request body
+// The reviewedUser ID can be in the URL param OR in the request body.
+// Optional: pass gigId in the body to link the review to a completed gig.
 const createReviewController = async (req, res, next) => {
   try {
     // Support multiple ways the app might send the reviewed user's ID
@@ -25,7 +26,8 @@ const createReviewController = async (req, res, next) => {
       req.user.id,     // Who is writing the review (logged-in user)
       reviewedUserId,  // Who is being reviewed
       req.body.rating,
-      req.body.comment
+      req.body.comment,
+      req.body.gigId || null  // Optional: link to a completed gig
     );
 
     return res.status(201).json(new ApiResponse(true, "Review Added", review));
@@ -44,4 +46,14 @@ const getUserReviewsController = async (req, res, next) => {
   }
 };
 
-module.exports = { createReviewController, getUserReviewsController };
+// GET /api/reviews/gig/:gigId — Get all reviews for a specific gig
+const getGigReviewsController = async (req, res, next) => {
+  try {
+    const reviews = await getGigReviews(req.params.gigId);
+    return res.status(200).json(new ApiResponse(true, "Gig Reviews", reviews));
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { createReviewController, getUserReviewsController, getGigReviewsController };
