@@ -63,15 +63,20 @@ const getMessagesByReceiverController = async (req, res, next) => {
     const receiverId = req.params.receiverId;
     const gigId      = req.query.gigId;
 
-    if (!gigId) {
-      return res.status(400).json(new ApiResponse(false, "gigId query parameter is required"));
+    const query = { participants: { $all: [userId, receiverId], $size: 2 } };
+    if (gigId && typeof gigId === "string" && gigId.trim()) {
+      query.gig = gigId.trim();
     }
 
     // Find the conversation between the two users
-    const conversation = await Conversation.findOne({
-      participants: { $all: [userId, receiverId], $size: 2 }, // Must include EXACTLY BOTH users
-      gig: gigId,
-    });
+    let conversation = await Conversation.findOne(query);
+
+    // Fallback: if searching by gigId returned nothing, search by participants only
+    if (!conversation && gigId) {
+      conversation = await Conversation.findOne({
+        participants: { $all: [userId, receiverId], $size: 2 },
+      });
+    }
 
     // If no conversation exists yet, return an empty array (not an error)
     if (!conversation) {
@@ -102,14 +107,17 @@ const markMessagesReadController = async (req, res, next) => {
     const receiverId = req.params.receiverId;
     const gigId      = req.query.gigId;
 
-    if (!gigId) {
-      return res.status(400).json(new ApiResponse(false, "gigId query parameter is required"));
+    const query = { participants: { $all: [userId, receiverId], $size: 2 } };
+    if (gigId && typeof gigId === "string" && gigId.trim()) {
+      query.gig = gigId.trim();
     }
 
-    const conversation = await Conversation.findOne({
-      participants: { $all: [userId, receiverId], $size: 2 },
-      gig: gigId,
-    });
+    let conversation = await Conversation.findOne(query);
+    if (!conversation && gigId) {
+      conversation = await Conversation.findOne({
+        participants: { $all: [userId, receiverId], $size: 2 },
+      });
+    }
 
     if (conversation) {
       await Message.updateMany(

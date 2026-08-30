@@ -37,23 +37,31 @@ const createConversation = async (user1Id, user2Id, gigId) => {
   // Sort the IDs so (A, B) and (B, A) resolve to the same conversation
   const sorted = [user1Id.toString(), user2Id.toString()].sort();
 
+  const query = { participants: { $all: sorted, $size: 2 } };
+  if (gigId && typeof gigId === "string" && gigId.trim()) {
+    query.gig = gigId.trim();
+  }
+
   // 1. Try to find existing conversation between these 2 users
-  let conversation = await Conversation.findOne({
-    participants: { $all: sorted, $size: 2 },
-    gig: gigId,
-  });
+  let conversation = await Conversation.findOne(query);
+
+  // 1b. Fallback: if querying with gigId returned nothing, check if ANY conversation exists between the two users
+  if (!conversation && gigId) {
+    conversation = await Conversation.findOne({ participants: { $all: sorted, $size: 2 } });
+  }
 
   // 2. If not found, create one. Handles rare race conditions gracefully.
   if (!conversation) {
     try {
-      conversation = await Conversation.create({ participants: sorted, gig: gigId });
+      const createData = { participants: sorted };
+      if (gigId && typeof gigId === "string" && gigId.trim()) {
+        createData.gig = gigId.trim();
+      }
+      conversation = await Conversation.create(createData);
     } catch (err) {
       if (err.code === 11000) {
         // Race condition hit — another request created it a millisecond ago
-        conversation = await Conversation.findOne({
-          participants: { $all: sorted, $size: 2 },
-          gig: gigId,
-        });
+        conversation = await Conversation.findOne(query);
       } else {
         throw err;
       }

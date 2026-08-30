@@ -98,7 +98,6 @@ const chatSocket = (io) => {
 
         // Basic validation
         if (!receiverId || typeof receiverId !== "string" || !receiverId.trim()) return;
-        if (!gigId      || typeof gigId      !== "string" || !gigId.trim())      return;
         if (!content   || typeof content    !== "string" || !content.trim())    return;
 
         // Rate-limit
@@ -110,7 +109,8 @@ const chatSocket = (io) => {
         lastMessageAt = now;
 
         // Resolve or create the conversation between the two users
-        const conversation = await createConversation(userId, receiverId, gigId);
+        const validGigId = (gigId && typeof gigId === "string" && gigId.trim()) ? gigId.trim() : null;
+        const conversation = await createConversation(userId, receiverId, validGigId);
 
         // Persist the message
         const saved = await saveMessage(conversation._id, userId, content.trim());
@@ -158,9 +158,9 @@ const chatSocket = (io) => {
       try {
         const { senderId, gigId } = data || {};
         if (!senderId || typeof senderId !== "string") return;
-        if (!gigId    || typeof gigId    !== "string") return;
 
-        const conversation = await createConversation(userId, senderId, gigId);
+        const validGigId = (gigId && typeof gigId === "string" && gigId.trim()) ? gigId.trim() : null;
+        const conversation = await createConversation(userId, senderId, validGigId);
         await markMessagesAsRead(conversation._id, userId);
 
         // Notify the original sender so their outgoing checkmarks update live
