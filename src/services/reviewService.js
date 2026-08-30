@@ -40,7 +40,8 @@ const createReview = async (reviewerId, reviewedUserId, rating, comment, gigId =
     const gig = await Gig.findById(gigId);
     if (!gig) throw new ApiError(404, "Gig not found");
 
-    // Only allow reviews on completed gigs (status stored lowercase in DB)
+    // Only allow reviews on completed gigs.
+    // NOTE: gig.status getter returns lowercase (schema get transform), so compare lowercase.
     if (gig.status.toLowerCase() !== "completed") {
       throw new ApiError(400, "Reviews can only be submitted for completed gigs");
     }
@@ -50,10 +51,12 @@ const createReview = async (reviewerId, reviewedUserId, rating, comment, gigId =
     const posterId = gig.postedBy.toString();
     const isGigPoster = posterId === reviewerId.toString();
 
+    // IMPORTANT: Application status is stored as UPPERCASE in MongoDB.
+    // The schema getter returns lowercase, but raw queries hit the stored value.
     const acceptedApplication = await Application.findOne({
       gig:       gigId,
       applicant: reviewerId,
-      status:    { $in: ["accepted", "completed"] },
+      status:    { $in: ["ACCEPTED", "COMPLETED"] },
     });
     const isAcceptedApplicant = !!acceptedApplication;
 
@@ -62,11 +65,12 @@ const createReview = async (reviewerId, reviewedUserId, rating, comment, gigId =
     }
 
     // Also check the reviewedUser participated in this gig
+    // IMPORTANT: status stored UPPERCASE in DB.
     const reviewedUserIsGigPoster = posterId === reviewedUserId.toString();
     const reviewedUserIsApplicant = await Application.findOne({
       gig:       gigId,
       applicant: reviewedUserId,
-      status:    { $in: ["accepted", "completed"] },
+      status:    { $in: ["ACCEPTED", "COMPLETED"] },
     });
     if (!reviewedUserIsGigPoster && !reviewedUserIsApplicant) {
       throw new ApiError(400, "The person you are reviewing did not participate in this gig");

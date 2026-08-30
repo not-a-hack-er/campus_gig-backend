@@ -195,16 +195,38 @@ describe('PATCH /api/applications/:id/status', () => {
 
     const appRes = await request(app)
       .post(`/api/applications/${freshGigId}`)
-      .set('Authorization', `Bearer ${applierToken}`)
+      .set('Authorization', `Bearer ${thirdToken}`)
       .send({ proposal: 'Withdraw test proposal', expectedBudget: 3800 });
     const pendingAppId = appRes.body._id;
 
     const res = await request(app)
       .patch(`/api/applications/${pendingAppId}/status`)
-      .set('Authorization', `Bearer ${applierToken}`)
+      .set('Authorization', `Bearer ${thirdToken}`)
       .send({ status: 'WITHDRAWN' });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('withdrawn');
+  });
+
+  test('blocks applying for a new gig when worker already has an active hired gig in progress', async () => {
+    const gigRes = await request(app)
+      .post('/api/gigs')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        title: 'Another Open Gig',
+        description: 'Testing active gig constraint',
+        budget: 5000,
+        category: 'Test'
+      });
+    const newGigId = gigRes.body._id;
+
+    // applierToken is already hired on gigId (status: IN_PROGRESS)
+    const res = await request(app)
+      .post(`/api/applications/${newGigId}`)
+      .set('Authorization', `Bearer ${applierToken}`)
+      .send({ proposal: 'Attempting second gig while active', expectedBudget: 4500 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('already have an active gig in progress');
   });
 
   test('invalid status returns 400', async () => {

@@ -56,13 +56,56 @@ const applyForGig = async (gigId, userId, proposal, expectedBudget) => {
   }
 
   // Don't allow the same person to apply twice to the same gig
-  // NOTE: the schema-level { gig, applicant } unique compound index is the
-  // final guard — this JS check gives a user-friendly error message first.
   const existingApplication = await Application.findOne({ gig: gigId, applicant: userId });
   if (existingApplication) {
     throw new ApiError(400, "You have already applied to this gig");
   }
 
+  // ── SINGLE ACTIVE GIG CONSTRAINT ──────────────────────────────────────────
+  // A worker can only work on ONE active gig at a time.
+  // If they have an accepted application for a gig currently IN_PROGRESS or WORK_SUBMITTED,
+  // they cannot apply for additional gigs until completing their active work.
+  const activeHiredApp = await Application.findOne({
+    applicant: userId,
+    status: "ACCEPTED",
+  }).populate("gig");
+
+  if (activeHiredApp && activeHiredApp.gig) {
+    const activeGigStatus = (activeHiredApp.gig.status || "").toUpperCase();
+    if (["IN_PROGRESS", "WORK_SUBMITTED"].includes(activeGigStatus)) {
+      throw new ApiError(
+        400,
+        `You already have an active gig in progress ("${activeHiredApp.gig.title}"). ` +
+        `Please complete your current gig before applying for new opportunities!`
+      );
+    }
+  }
+  // ── ANTI-COLLUSION (REVIEW FARMING) CONSTRAINT ───────────────────────────
+  // A worker cannot apply to gigs from the same employer if they completed a
+  // gig for them within the last 7 days.
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  
+  const recentCompletedGigs = await Gig.find({
+    postedBy: gig.postedBy._id,
+    status: "COMPLETED",
+    updatedAt: { $gt: sevenDaysAgo }
+  }).select("_id");
+
+  if (recentCompletedGigs.length > 0) {
+    const recentGigIds = recentCompletedGigs.map(g => g._id);
+    const recentHiredApp = await Application.findOne({
+      applicant: userId,
+      gig: { $in: recentGigIds },
+      status: "ACCEPTED"
+    });
+
+    if (recentHiredApp) {
+      throw new ApiError(
+        400,
+        "To maintain fair reviews, you cannot work for an employer you recently collaborated with until a 7-day cooldown period passes."
+      );
+    }
+  }
   // Validate required fields
   if (!proposal || !proposal.trim()) {
     throw new ApiError(400, "Proposal is required");
@@ -198,11 +241,30 @@ const updateApplicationStatus = async (applicationId, status, callerUserId) => {
   // ── CAS-FIRST UPDATE (no transaction needed) ──────────────────────────────
 
   if (uppercaseStatus === "ACCEPTED") {
+    // Check if applicant ALREADY has an active hired gig in progress with another employer
+    const existingActiveApp = await Application.findOne({
+      applicant: applicantId,
+      status: "ACCEPTED",
+      _id: { $ne: applicationId }
+    }).populate("gig");
+
+    if (existingActiveApp && existingActiveApp.gig) {
+      const activeStatus = (existingActiveApp.gig.status || "").toUpperCase();
+      if (["IN_PROGRESS", "WORK_SUBMITTED"].includes(activeStatus)) {
+        throw new ApiError(
+          400,
+          `This applicant is currently working on another active gig ("${existingActiveApp.gig.title}"). ` +
+          `They must complete their current active gig before being hired for a new one.`
+        );
+      }
+    }
+
     // STEP 1 (CAS): Atomically transition gig OPEN → IN_PROGRESS.
     // This is the critical guard — only ONE concurrent request can win.
+    // Also record the accepted applicant on the gig for the completion flow.
     const updatedGig = await Gig.findOneAndUpdate(
       { _id: application.gig._id, status: "OPEN" },
-      { $set: { status: "IN_PROGRESS" } },
+      { $set: { status: "IN_PROGRESS", acceptedApplicant: applicantId } },
       { new: true }
     );
 

@@ -38,6 +38,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const reviewRoutes       = require("./routes/reviewRoutes");
 const userRoutes         = require("./routes/userRoutes");
 const messageRoutes      = require("./routes/messageRoutes");
+const feedbackRoutes     = require("./routes/feedbackRoutes");
 
 const app = express();
 
@@ -162,6 +163,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/reviews",       reviewRoutes);
 app.use("/api/users",         userRoutes);
 app.use("/api/messages",      messageRoutes);
+app.use("/api/feedback",      feedbackRoutes);
 
 // ─── 404 Handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {

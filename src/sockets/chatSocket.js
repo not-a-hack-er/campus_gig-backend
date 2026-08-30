@@ -94,10 +94,11 @@ const chatSocket = (io) => {
     // ── send_message ─────────────────────────────────────────────────────────
     socket.on("send_message", async (data) => {
       try {
-        const { receiverId, content } = data || {};
+        const { receiverId, gigId, content } = data || {};
 
         // Basic validation
         if (!receiverId || typeof receiverId !== "string" || !receiverId.trim()) return;
+        if (!gigId      || typeof gigId      !== "string" || !gigId.trim())      return;
         if (!content   || typeof content    !== "string" || !content.trim())    return;
 
         // Rate-limit
@@ -109,7 +110,7 @@ const chatSocket = (io) => {
         lastMessageAt = now;
 
         // Resolve or create the conversation between the two users
-        const conversation = await createConversation(userId, receiverId);
+        const conversation = await createConversation(userId, receiverId, gigId);
 
         // Persist the message
         const saved = await saveMessage(conversation._id, userId, content.trim());
@@ -145,19 +146,21 @@ const chatSocket = (io) => {
     });
 
     // ── typing indicator ─────────────────────────────────────────────────────
-    socket.on("typing", (receiverId) => {
+    socket.on("typing", (data) => {
+      const { receiverId, gigId } = data || {};
       if (!receiverId || typeof receiverId !== "string") return;
       io.to(receiverId).emit("typing", userId);
     });
 
     // ── mark_read ─────────────────────────────────────────────────────────────
     // Client emits this when they open a conversation.
-    // Payload: the OTHER user's ID (the one whose messages we are marking read).
-    socket.on("mark_read", async (senderId) => {
+    socket.on("mark_read", async (data) => {
       try {
+        const { senderId, gigId } = data || {};
         if (!senderId || typeof senderId !== "string") return;
+        if (!gigId    || typeof gigId    !== "string") return;
 
-        const conversation = await createConversation(userId, senderId);
+        const conversation = await createConversation(userId, senderId, gigId);
         await markMessagesAsRead(conversation._id, userId);
 
         // Notify the original sender so their outgoing checkmarks update live

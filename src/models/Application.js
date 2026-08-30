@@ -3,6 +3,10 @@
 //
 // When a user applies to a gig, an Application document is created.
 // It links a Gig and an applicant (User), and stores their proposal.
+//
+// Status lifecycle:
+//   PENDING → ACCEPTED (employer accepts) or REJECTED / WITHDRAWN
+//   ACCEPTED → COMPLETED (when gig is completed)
 // ============================================================
 
 const mongoose = require("mongoose");
@@ -33,10 +37,19 @@ const applicationSchema = new mongoose.Schema(
     // Stored as UPPERCASE, returned as lowercase
     status: {
       type: String,
-      enum: ["PENDING", "ACCEPTED", "REJECTED", "WITHDRAWN"],
+      enum: ["PENDING", "ACCEPTED", "REJECTED", "WITHDRAWN", "COMPLETED"],
       default: "PENDING",
       set: (v) => (typeof v === "string" ? v.toUpperCase() : v),
       get: (v) => (typeof v === "string" ? v.toLowerCase() : v),
+    },
+
+    // ── Work Submission (populated when worker submits their deliverable) ──────
+    // Filled when the accepted applicant calls POST /api/gigs/:id/submit-work.
+    // The employer then reviews this and enters the OTP to confirm completion.
+    workSubmission: {
+      submittedUrl:  { type: String, default: "" },  // Link to deliverable (GitHub, Drive, etc.)
+      submittedNote: { type: String, default: "" },  // Explanation / handover notes
+      submittedAt:   { type: Date,   default: null }, // Timestamp of submission (used by auto-timer)
     },
   },
   {

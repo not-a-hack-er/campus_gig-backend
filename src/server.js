@@ -23,6 +23,7 @@ const { env }        = require("./config/env");
 const logger         = require("./config/logger");
 const chatSocket     = require("./sockets/chatSocket");
 const presenceSocket = require("./sockets/presenceSocket");
+const { startGigCompletionScheduler } = require("./services/gigCompletionScheduler");
 
 // ─── Global Safety Net ────────────────────────────────────────────────────────
 // These catch any error that escapes the normal try/catch flow.
@@ -98,7 +99,9 @@ const startServer = async () => {
     chatSocket(io);      // Handles real-time chat messages
     presenceSocket(io);  // Handles online/offline user status
 
-    // Step 6: Start listening for requests
+    // Step 6: Start the gig completion scheduler (auto-approve after 3 days)
+    // Must start AFTER DB connection so Mongoose models are ready.
+    startGigCompletionScheduler();
     const HOST = "0.0.0.0";
     server.listen(env.PORT, HOST, () => {
       const networkInterfaces = os.networkInterfaces();

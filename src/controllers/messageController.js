@@ -25,6 +25,7 @@ const getConversationsController = async (req, res, next) => {
       participants: userId,
     })
       .populate("participants", "name email avatar bio college")
+      .populate("gig", "title _id")
       .sort({ updatedAt: -1 });
 
     // Build the inbox list: for each conversation, return the other user's profile
@@ -43,6 +44,8 @@ const getConversationsController = async (req, res, next) => {
           lastMessage:    conv.lastMessage || "",
           updatedAt:      conv.updatedAt,
           user:           otherUser,        // The other person's profile
+          gigId:          conv.gig ? conv.gig._id : "",
+          gigTitle:       conv.gig ? conv.gig.title : "",
         };
       })
       .filter(Boolean); // Remove any null entries
@@ -58,10 +61,16 @@ const getMessagesByReceiverController = async (req, res, next) => {
   try {
     const userId     = req.user.id;
     const receiverId = req.params.receiverId;
+    const gigId      = req.query.gigId;
+
+    if (!gigId) {
+      return res.status(400).json(new ApiResponse(false, "gigId query parameter is required"));
+    }
 
     // Find the conversation between the two users
     const conversation = await Conversation.findOne({
       participants: { $all: [userId, receiverId], $size: 2 }, // Must include EXACTLY BOTH users
+      gig: gigId,
     });
 
     // If no conversation exists yet, return an empty array (not an error)
@@ -91,9 +100,15 @@ const markMessagesReadController = async (req, res, next) => {
   try {
     const userId     = req.user.id;
     const receiverId = req.params.receiverId;
+    const gigId      = req.query.gigId;
+
+    if (!gigId) {
+      return res.status(400).json(new ApiResponse(false, "gigId query parameter is required"));
+    }
 
     const conversation = await Conversation.findOne({
       participants: { $all: [userId, receiverId], $size: 2 },
+      gig: gigId,
     });
 
     if (conversation) {

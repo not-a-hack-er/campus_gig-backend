@@ -38,6 +38,13 @@ const conversationSchema = new mongoose.Schema(
       },
     },
 
+    // The specific gig this conversation is about
+    gig: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Gig",
+      required: true,
+    },
+
     // Preview of the most recent message (shown in the inbox list)
     lastMessage: { type: String, default: "" },
   },
@@ -62,9 +69,10 @@ const conversationSchema = new mongoose.Schema(
 //   The sparse index below on the pair ensures no duplicates.
 
 conversationSchema.index(
-  { participants: 1 },
+  { participants: 1, gig: 1 },
   {
-    name: "conversations_participants_idx",
+    name: "conversations_participants_gig_idx",
+    unique: true, // Now it can be truly unique since it's mapped per gig
     // Background creation doesn't block the server on first deploy
     background: true,
   }

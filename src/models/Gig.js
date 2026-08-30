@@ -3,6 +3,13 @@
 //
 // A "Gig" is a task or job posted by a student looking for help.
 // Another student can apply for the gig.
+//
+// Gig status lifecycle:
+//   OPEN        — accepting applications
+//   IN_PROGRESS — one applicant accepted, work underway
+//   WORK_SUBMITTED — worker has submitted deliverables, awaiting employer OTP
+//   COMPLETED   — employer verified with OTP (or auto-approved after 3 days)
+//   CANCELLED   — poster cancelled the gig
 // ============================================================
 
 const mongoose = require("mongoose");
@@ -24,11 +31,19 @@ const gigSchema = new mongoose.Schema(
       required: true,
     },
 
+    // The accepted applicant (worker). Set when an application is accepted.
+    // Used during completion to locate the accepted application quickly.
+    acceptedApplicant: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
     // Status of the gig
     // Stored in UPPERCASE internally, returned in lowercase to the app
     status: {
       type: String,
-      enum: ["OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"],
+      enum: ["OPEN", "IN_PROGRESS", "WORK_SUBMITTED", "COMPLETED", "CANCELLED"],
       default: "OPEN",
       set: (v) => (typeof v === "string" ? v.toUpperCase() : v), // Save as uppercase
       get: (v) => (typeof v === "string" ? v.toLowerCase() : v), // Return as lowercase
@@ -41,6 +56,13 @@ const gigSchema = new mongoose.Schema(
 
     // Number of applications received (incremented when someone applies)
     applicationsCount: { type: Number, default: 0 },
+
+    // ── Completion OTP (hidden from all queries by default) ───────────────────
+    // Generated when the worker submits work. Sent to employer via notification.
+    // Employer enters this code to confirm gig completion.
+    // Cleared after use or expiry.
+    completionOtp:        { type: String, select: false }, // bcrypt-hashed 4-digit OTP
+    completionOtpExpiry:  { type: Date,   select: false }, // OTP valid until this timestamp
   },
   {
     timestamps: true, // Adds createdAt and updatedAt automatically

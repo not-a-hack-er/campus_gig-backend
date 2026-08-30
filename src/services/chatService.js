@@ -33,24 +33,26 @@ const SENDER_FIELDS = "_id name avatar college";
 // ─────────────────────────────────────────────────────────────────────────────
 // Find or create a conversation between two users (atomic upsert)
 // ─────────────────────────────────────────────────────────────────────────────
-const createConversation = async (user1Id, user2Id) => {
+const createConversation = async (user1Id, user2Id, gigId) => {
   // Sort the IDs so (A, B) and (B, A) resolve to the same conversation
   const sorted = [user1Id.toString(), user2Id.toString()].sort();
 
   // 1. Try to find existing conversation between these 2 users
   let conversation = await Conversation.findOne({
     participants: { $all: sorted, $size: 2 },
+    gig: gigId,
   });
 
   // 2. If not found, create one. Handles rare race conditions gracefully.
   if (!conversation) {
     try {
-      conversation = await Conversation.create({ participants: sorted });
+      conversation = await Conversation.create({ participants: sorted, gig: gigId });
     } catch (err) {
       if (err.code === 11000) {
         // Race condition hit — another request created it a millisecond ago
         conversation = await Conversation.findOne({
           participants: { $all: sorted, $size: 2 },
+          gig: gigId,
         });
       } else {
         throw err;

@@ -14,11 +14,11 @@ const { createConversation, getMessages } = require("../services/chatService");
 // Body: { receiverId }
 const createConversationController = async (req, res, next) => {
   try {
-    const { receiverId } = req.body;
+    const { receiverId, gigId } = req.body;
 
     // receiverId is required — without it we cannot create a meaningful conversation
-    if (!receiverId) {
-      throw new ApiError(400, "receiverId is required");
+    if (!receiverId || !gigId) {
+      throw new ApiError(400, "receiverId and gigId are required");
     }
 
     // A user cannot start a conversation with themselves
@@ -26,7 +26,7 @@ const createConversationController = async (req, res, next) => {
       throw new ApiError(400, "You cannot start a conversation with yourself");
     }
 
-    const conversation = await createConversation(req.user.id, receiverId);
+    const conversation = await createConversation(req.user.id, receiverId, gigId);
     return res.status(201).json(new ApiResponse(true, "Conversation Created", conversation));
   } catch (error) {
     next(error);
