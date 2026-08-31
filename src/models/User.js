@@ -57,6 +57,9 @@ const userSchema = new mongoose.Schema(
     gigsPosted:    { type: Number, default: 0 },
     gigsCompleted: { type: Number, default: 0 },
 
+    // ── Device Push Token ───────────────────────────────────
+    fcmToken: { type: String, default: "" }, // Firebase Cloud Messaging token
+
     // ── Account Status ──────────────────────────────────────
     isVerified: { type: Boolean, default: false },
     isActive:   { type: Boolean, default: true },

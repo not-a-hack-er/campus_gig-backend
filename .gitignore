@@ -36,3 +36,8 @@ desktop.ini
 # Test and coverage artifacts
 coverage/
 .nyc_output/
+
+# Firebase & Secret Keys
+serviceAccountKey.json
+*.py
+*.png

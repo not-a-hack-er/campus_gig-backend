@@ -34,7 +34,7 @@ const updateUserProfile = async (userId, bodyData) => {
 
   const allowedFields = [
     "name", "bio", "avatar", "college", "branch",
-    "graduationYear", "skills", "github", "linkedin", "portfolio", "resumeUrl",
+    "graduationYear", "skills", "github", "linkedin", "portfolio", "resumeUrl", "fcmToken",
   ];
 
   const updates = {};
@@ -54,6 +54,21 @@ const updateUserProfile = async (userId, bodyData) => {
     { new: true, runValidators: true }
   );
 
+  if (!user) throw new ApiError(404, "User not found");
+  return user;
+};
+
+// Update user's FCM token for Push Notifications
+const updateUserFcmToken = async (userId, fcmToken) => {
+  if (typeof fcmToken !== "string") {
+    throw new ApiError(400, "fcmToken must be a string");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { $set: { fcmToken: fcmToken.trim() } },
+    { new: true }
+  );
   if (!user) throw new ApiError(404, "User not found");
   return user;
 };
@@ -149,6 +164,7 @@ const getCollegesList = async (queryStr = "") => {
 module.exports = {
   getUserById,
   updateUserProfile,
+  updateUserFcmToken,
   updateUserAvatar,
   changeUserPassword,
   getUserDashboardStats,

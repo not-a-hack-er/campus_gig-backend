@@ -10,9 +10,11 @@
 // ============================================================
 
 const Notification = require("../models/Notification");
+const User         = require("../models/User");
 const ApiError     = require("../utils/ApiError");
 
-const { emitToUser } = require("../sockets/socketService");
+const { emitToUser }                  = require("../sockets/socketService");
+const { messaging, isFirebaseConfigured } = require("../config/firebase");
 
 // Create a notification for a user
 // Parameters:
@@ -35,11 +37,51 @@ const createNotification = async (
     referenceType,
   });
 
-  // Emit instantly to recipient's private socket room
+  // 1. Emit instantly to recipient's private socket room (if connected online)
   try {
     emitToUser(recipient, "new_notification", notification);
   } catch (err) {
     console.error("[createNotification] Socket emit error:", err.message);
+  }
+
+  // 2. Dispatch FCM Push Notification to recipient's mobile device (if fcmToken exists)
+  if (isFirebaseConfigured()) {
+    try {
+      const recipientUser = await User.findById(recipient).select("fcmToken");
+      if (recipientUser && recipientUser.fcmToken) {
+        const payload = {
+          token: recipientUser.fcmToken,
+          notification: {
+            title: title,
+            body: message,
+          },
+          data: {
+            notificationId: notification._id.toString(),
+            type: type || "",
+            referenceId: referenceId ? String(referenceId) : "",
+            referenceType: referenceType || "",
+          },
+          android: {
+            priority: "high",
+            notification: {
+              sound: "default",
+              channelId: "campusvault_general",
+            },
+          },
+        };
+
+        await messaging.send(payload);
+      }
+    } catch (fcmErr) {
+      // Auto-clean stale or expired FCM tokens
+      if (
+        fcmErr.code === "messaging/registration-token-not-registered" ||
+        fcmErr.code === "messaging/invalid-registration-token"
+      ) {
+        await User.findByIdAndUpdate(recipient, { $set: { fcmToken: "" } });
+      }
+      console.error("[createNotification] FCM Push error:", fcmErr.message);
+    }
   }
 
   return notification;

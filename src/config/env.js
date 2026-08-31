@@ -27,9 +27,10 @@ const env = {
 
   // ── Optional Services (production scale-out) ───────────────
   // Set these in production to unlock each capability.
-  REDIS_URL:        process.env.REDIS_URL        || null, // Socket.IO multi-instance scaling
-  CLOUDINARY_URL:   process.env.CLOUDINARY_URL   || null, // Cloud avatar storage
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || null, // Google OAuth verification
+  REDIS_URL:                    process.env.REDIS_URL                    || null, // Socket.IO multi-instance scaling
+  CLOUDINARY_URL:               process.env.CLOUDINARY_URL               || null, // Cloud avatar storage
+  GOOGLE_CLIENT_ID:             process.env.GOOGLE_CLIENT_ID             || null, // Google OAuth verification
+  FIREBASE_SERVICE_ACCOUNT_KEY: process.env.FIREBASE_SERVICE_ACCOUNT_KEY || null, // FCM Push Notifications
 };
 
 // ── Required variable validation ──────────────────────────────

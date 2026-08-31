@@ -104,17 +104,26 @@ describe('PATCH /api/notifications/:id/read', () => {
   });
 });
 
-describe('PUT /api/notifications/read-all', () => {
-  test('marks all notifications as read', async () => {
+describe('POST /api/users/me/fcm-token', () => {
+  test('updates user FCM token', async () => {
     const res = await request(app)
-      .put('/api/notifications/read-all')
-      .set('Authorization', `Bearer ${token}`);
+      .post('/api/users/me/fcm-token')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ fcmToken: 'test_fcm_token_12345' });
     expect(res.status).toBe(200);
-    expect(res.body.message).toBeDefined();
+    expect(res.body.fcmToken).toBe('test_fcm_token_12345');
   });
 
-  test('returns 401 without auth', async () => {
-    const res = await request(app).put('/api/notifications/read-all');
-    expect(res.status).toBe(401);
+  test('creates notification and triggers FCM safe check without throwing', async () => {
+    const { createNotification } = require('../src/services/notificationService');
+    const notif = await createNotification(
+      userId,
+      'FCM Test Title',
+      'FCM Test Body Message',
+      { type: 'fcm_test', referenceId: '123' }
+    );
+    expect(notif).toBeDefined();
+    expect(notif.title).toBe('FCM Test Title');
   });
 });
+

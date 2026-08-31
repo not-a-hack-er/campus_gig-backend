@@ -31,6 +31,22 @@ const updateMyProfileController = async (req, res, next) => {
   }
 };
 
+// POST /api/users/me/fcm-token — Store/update Firebase FCM token for Push Notifications
+const updateFcmTokenController = async (req, res, next) => {
+  try {
+    const fcmToken = req.body.fcmToken || req.body.token;
+    if (!fcmToken) {
+      throw new ApiError(400, "fcmToken field is required in request body");
+    }
+    const user = await userService.updateUserFcmToken(req.user.id, fcmToken);
+    return res.status(200).json(
+      new ApiResponse(true, "FCM Push Token updated successfully", { fcmToken: user.fcmToken })
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 // POST /api/users/me/avatar — Upload a profile picture
 const uploadAvatarController = async (req, res, next) => {
   try {
@@ -173,6 +189,7 @@ const getCollegesController = async (req, res, next) => {
 module.exports = {
   getMyProfileController,
   updateMyProfileController,
+  updateFcmTokenController,
   uploadAvatarController,
   uploadResumeController,
   changePasswordController,
