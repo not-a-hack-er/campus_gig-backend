@@ -72,7 +72,9 @@ const applyForGig = async (gigId, userId, proposal, expectedBudget) => {
 
   if (activeHiredApp && activeHiredApp.gig) {
     const activeGigStatus = (activeHiredApp.gig.status || "").toUpperCase();
-    if (["IN_PROGRESS", "WORK_SUBMITTED"].includes(activeGigStatus)) {
+    const assignedWorkerId = activeHiredApp.gig.acceptedApplicant;
+    const isAssignedWorker = assignedWorkerId && assignedWorkerId.toString() === userId.toString();
+    if (isAssignedWorker && ["IN_PROGRESS", "WORK_SUBMITTED"].includes(activeGigStatus)) {
       throw new ApiError(
         400,
         `You already have an active gig in progress ("${activeHiredApp.gig.title}"). ` +
@@ -250,7 +252,9 @@ const updateApplicationStatus = async (applicationId, status, callerUserId) => {
 
     if (existingActiveApp && existingActiveApp.gig) {
       const activeStatus = (existingActiveApp.gig.status || "").toUpperCase();
-      if (["IN_PROGRESS", "WORK_SUBMITTED"].includes(activeStatus)) {
+      const assignedWorkerId = existingActiveApp.gig.acceptedApplicant;
+      const isAssignedWorker = assignedWorkerId && assignedWorkerId.toString() === applicantId.toString();
+      if (isAssignedWorker && ["IN_PROGRESS", "WORK_SUBMITTED"].includes(activeStatus)) {
         throw new ApiError(
           400,
           `This applicant is currently working on another active gig ("${existingActiveApp.gig.title}"). ` +
