@@ -39,6 +39,7 @@ const reviewRoutes       = require("./routes/reviewRoutes");
 const userRoutes         = require("./routes/userRoutes");
 const messageRoutes      = require("./routes/messageRoutes");
 const feedbackRoutes     = require("./routes/feedbackRoutes");
+const legalPages         = require("./routes/legalPages");
 
 const app = express();
 
@@ -124,6 +125,10 @@ app.use(mongoSanitize());
 // Only used when CLOUDINARY_URL is not set (local dev mode).
 // In production with Cloudinary, files are served directly from the CDN.
 if (!env.CLOUDINARY_URL) {
+  app.get('/uploads/:folder/:filename', (req, res, next) => {
+    if (env.NODE_ENV !== 'production') return next();
+    return require('./middleware/databaseUpload').serveDatabaseUpload(req, res, next);
+  });
   app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 }
 
@@ -149,6 +154,7 @@ app.get("/", (req, res) => {
     version: "1.0.0",
   });
 });
+app.use(legalPages);
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
 

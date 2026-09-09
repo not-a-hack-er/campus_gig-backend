@@ -36,6 +36,12 @@ const createConversationController = async (req, res, next) => {
 // GET /api/chat/messages/:conversationId — Get all messages in a conversation
 const getMessagesController = async (req, res, next) => {
   try {
+    const Conversation = require('../models/Conversation');
+    const conversation = await Conversation.findById(req.params.conversationId).select('participants');
+    if (!conversation) throw new ApiError(404, 'Conversation not found');
+    if (!conversation.participants.some(id => String(id) === String(req.user.id))) {
+      throw new ApiError(403, 'You are not a participant in this conversation');
+    }
     const messages = await getMessages(req.params.conversationId);
     return res.status(200).json(new ApiResponse(true, "Messages Fetched", messages));
   } catch (error) {

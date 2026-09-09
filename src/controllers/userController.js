@@ -10,6 +10,7 @@ const ApiResponse = require("../utils/ApiResponse");
 const ApiError    = require("../utils/ApiError");
 const { handleAvatarUpload, handleResumeUpload } = require("../middleware/upload");
 const userService = require("../services/userService");
+const uploadUrl = require("../utils/uploadUrl");
 
 // GET /api/users/me — Get logged-in user profile
 const getMyProfileController = async (req, res, next) => {
@@ -56,9 +57,7 @@ const uploadAvatarController = async (req, res, next) => {
       throw new ApiError(400, 'No image file received. Send the file as a multipart field named "avatar".');
     }
 
-    const avatarUrl = req.file.path
-      ? req.file.path
-      : `${req.protocol}://${req.get("host")}/uploads/avatars/${req.file.filename}`;
+    const avatarUrl = uploadUrl(req, 'avatars');
     const user = await userService.updateUserAvatar(req.user.id, avatarUrl);
 
     return res.status(200).json(
@@ -81,9 +80,7 @@ const uploadResumeController = async (req, res, next) => {
 
     // Cloudinary returns req.file.path as the CDN URL;
     // local disk storage uses req.file.filename which we build into a full URL.
-    const resumeUrl = req.file.path
-      ? req.file.path  // Cloudinary secure URL
-      : `${req.protocol}://${req.get("host")}/uploads/resumes/${req.file.filename}`;
+    const resumeUrl = uploadUrl(req, 'resumes');
 
     const user = await userService.updateUserProfile(req.user.id, { resumeUrl });
 
@@ -188,6 +185,13 @@ const getCollegesController = async (req, res, next) => {
   }
 };
 
+const deleteMyAccountController = async (req, res, next) => {
+  try {
+    await userService.deleteUserAccount(req.user.id, req.body.confirmation);
+    return res.status(200).json(new ApiResponse(true, "Account and associated data deleted", null));
+  } catch (error) { next(error); }
+};
+
 module.exports = {
   getMyProfileController,
   updateMyProfileController,
@@ -202,4 +206,5 @@ module.exports = {
   getUserGigsController,
   getUserReviewsPublicController,
   getCollegesController,
+  deleteMyAccountController,
 };

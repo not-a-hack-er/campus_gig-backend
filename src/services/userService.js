@@ -161,6 +161,46 @@ const getCollegesList = async (queryStr = "") => {
   return sampleColleges.filter((c) => c.toLowerCase().includes(search));
 };
 
+const deleteUserAccount = async (userId, confirmation) => {
+  if (confirmation !== "DELETE") throw new ApiError(400, "Type DELETE to confirm account deletion");
+  const Message = require("../models/Message");
+  const Conversation = require("../models/Conversation");
+  const Notification = require("../models/Notification");
+  const Feedback = require("../models/Feedback");
+  const Community = require("../models/Community");
+  const CommunityPost = require("../models/CommunityPost");
+  const ownedGigIds = await Gig.find({ postedBy: userId }).distinct("_id");
+  const affectedGigIds = await Application.find({ applicant: userId }).distinct("gig");
+  const conversationIds = await Conversation.find({ participants: userId }).distinct("_id");
+  const ownedCommunityIds = await Community.find({ owner: userId }).distinct("_id");
+
+  await Gig.updateMany({ acceptedApplicant: userId, status: { $in: ["IN_PROGRESS", "WORK_SUBMITTED"] } },
+    { $set: { status: "OPEN", acceptedApplicant: null, submittedWorkUrl: "", submittedWorkNote: "" } });
+  await Promise.all([
+    Message.deleteMany({ conversationId: { $in: conversationIds } }),
+    Conversation.deleteMany({ _id: { $in: conversationIds } }),
+    Application.deleteMany({ $or: [{ applicant: userId }, { gig: { $in: ownedGigIds } }] }),
+    Review.deleteMany({ $or: [{ reviewer: userId }, { reviewedUser: userId }, { gig: { $in: ownedGigIds } }] }),
+    Notification.deleteMany({ $or: [{ recipient: userId }, { actor: userId }] }), Feedback.deleteMany({ user: userId }),
+    CommunityPost.deleteMany({ $or: [{ author: userId }, { community: { $in: ownedCommunityIds } }] }),
+    Community.deleteMany({ _id: { $in: ownedCommunityIds } }),
+    Community.updateMany({ members: userId }, { $pull: { members: userId } }),
+    Gig.deleteMany({ _id: { $in: ownedGigIds } }),
+  ]);
+  for (const gigId of affectedGigIds.filter(id => !ownedGigIds.some(owned => String(owned) === String(id)))) {
+    const count = await Application.countDocuments({ gig: gigId, status: { $ne: "WITHDRAWN" } });
+    await Gig.updateOne({ _id: gigId }, { $set: { applicationsCount: count } });
+  }
+  const db = require("mongoose").connection.db;
+  const files = await db.collection("userUploads.files").find({ "metadata.owner": String(userId) }).project({ _id: 1 }).toArray();
+  if (files.length) {
+    const ids = files.map(file => file._id);
+    await db.collection("userUploads.chunks").deleteMany({ files_id: { $in: ids } });
+    await db.collection("userUploads.files").deleteMany({ _id: { $in: ids } });
+  }
+  await User.findByIdAndDelete(userId);
+};
+
 module.exports = {
   getUserById,
   updateUserProfile,
@@ -170,4 +210,5 @@ module.exports = {
   getUserDashboardStats,
   getPublicProfile,
   getCollegesList,
+  deleteUserAccount,
 };

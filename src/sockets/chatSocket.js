@@ -45,7 +45,7 @@ const chatSocket = (io) => {
 
   // ── Authentication Middleware ─────────────────────────────────────────────
   // Runs before every connection.  Rejects any socket that lacks a valid JWT.
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token;
 
     if (!token || typeof token !== "string") {
@@ -67,6 +67,10 @@ const chatSocket = (io) => {
       return next(new Error("Authentication Required: malformed token payload"));
     }
 
+    try {
+      const user = await require('../models/User').findById(decoded.id).select('isActive');
+      if (!user || user.isActive === false) return next(new Error('Account unavailable'));
+    } catch (_) { return next(new Error('Authentication failed')); }
     socket.user = { id: decoded.id };
     next();
   });
@@ -81,10 +85,13 @@ const chatSocket = (io) => {
     socket.join(userId);
 
     // Allow the client to explicitly join a conversation room
-    socket.on("join_room", (roomId) => {
+    socket.on("join_room", async (roomId) => {
       if (typeof roomId !== "string" || !roomId.trim()) return;
-      socket.join(roomId);
-      console.log(`[Socket] User ${userId} joined room ${roomId}`);
+      if (roomId === userId) return socket.join(roomId);
+      try {
+        const allowed = await require('../models/Conversation').exists({ _id: roomId, participants: userId });
+        if (allowed) socket.join(roomId);
+      } catch (_) { /* Unknown rooms are never joined. */ }
     });
 
     // ── Per-socket message rate limiter ──────────────────────────────────────

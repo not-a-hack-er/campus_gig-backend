@@ -53,7 +53,7 @@ if (env.NODE_ENV === "production") {
     console.warn("⚠️  REDIS_URL not set — Socket.IO will use in-memory adapter (single-server only)");
   }
   if (!env.CLOUDINARY_URL) {
-    console.warn("⚠️  CLOUDINARY_URL not set — uploads will be stored on local disk (not recommended in production)");
+    console.info("CLOUDINARY_URL not set — uploads use durable MongoDB storage");
   }
   if (!env.GOOGLE_CLIENT_ID) {
     console.warn("⚠️  GOOGLE_CLIENT_ID not set — Google OAuth login will be disabled");

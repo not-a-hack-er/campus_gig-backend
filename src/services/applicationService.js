@@ -65,10 +65,11 @@ const applyForGig = async (gigId, userId, proposal, expectedBudget) => {
   // A worker can only work on ONE active gig at a time.
   // If they have an accepted application for a gig currently IN_PROGRESS or WORK_SUBMITTED,
   // they cannot apply for additional gigs until completing their active work.
-  const activeHiredApp = await Application.findOne({
-    applicant: userId,
-    status: "ACCEPTED",
-  }).populate("gig");
+  const assignedGig = await Gig.findOne({
+    acceptedApplicant: userId,
+    status: { $in: ['IN_PROGRESS', 'WORK_SUBMITTED'] },
+  });
+  const activeHiredApp = assignedGig ? { gig: assignedGig } : null;
 
   if (activeHiredApp && activeHiredApp.gig) {
     const activeGigStatus = (activeHiredApp.gig.status || "").toUpperCase();
@@ -244,11 +245,12 @@ const updateApplicationStatus = async (applicationId, status, callerUserId) => {
 
   if (uppercaseStatus === "ACCEPTED") {
     // Check if applicant ALREADY has an active hired gig in progress with another employer
-    const existingActiveApp = await Application.findOne({
-      applicant: applicantId,
-      status: "ACCEPTED",
-      _id: { $ne: applicationId }
-    }).populate("gig");
+    const otherAssignedGig = await Gig.findOne({
+      acceptedApplicant: applicantId,
+      status: { $in: ['IN_PROGRESS', 'WORK_SUBMITTED'] },
+      _id: { $ne: application.gig._id },
+    });
+    const existingActiveApp = otherAssignedGig ? { gig: otherAssignedGig } : null;
 
     if (existingActiveApp && existingActiveApp.gig) {
       const activeStatus = (existingActiveApp.gig.status || "").toUpperCase();
@@ -285,7 +287,7 @@ const updateApplicationStatus = async (applicationId, status, callerUserId) => {
     } catch (saveErr) {
       // Compensate: revert gig back to OPEN if application save failed
       console.error("[updateApplicationStatus] Application save failed, reverting gig:", saveErr.message);
-      await Gig.findByIdAndUpdate(application.gig._id, { $set: { status: "OPEN" } });
+      await Gig.findByIdAndUpdate(application.gig._id, { $set: { status: "OPEN", acceptedApplicant: null } });
       throw saveErr;
     }
   } else if (uppercaseStatus === "WITHDRAWN") {

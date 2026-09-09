@@ -86,7 +86,7 @@ const createPostController = async (req, res, next) => {
 // GET /api/communities/:communityId/feed — Get posts in a community
 const getCommunityFeedController = async (req, res, next) => {
   try {
-    const feed = await getCommunityFeed(req.params.communityId);
+    const feed = await getCommunityFeed(req.params.communityId, req.user.id);
     return res.status(200).json(new ApiResponse(true, "Community Feed", feed));
   } catch (error) {
     next(error);

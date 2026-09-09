@@ -30,6 +30,6 @@ router.post('/:id/leave', protect, leaveCommunityController);    // Leave a comm
 
 // ── Community Posts ───────────────────────────────────────────
 router.post('/:communityId/posts', protect, createPostController);   // Create a post
-router.get('/:communityId/feed',          getCommunityFeedController); // Get community feed (public)
+router.get('/:communityId/feed', protect, getCommunityFeedController);
 
 module.exports = router;

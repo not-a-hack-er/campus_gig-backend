@@ -2,7 +2,7 @@
   "name": "campus-gig-backend",
   "version": "1.0.0",
   "description": "Production-ready REST API and real-time Socket.IO backend for CampusGig — a college student freelancing and peer-to-peer gig marketplace.",
-  "author": "not-a-hack-er <akarshbajpai99@gmail.com>",
+  "author": "CampusVault <CampusVault.co@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -51,7 +51,9 @@ const createNotification = async (
   }
 
   // 2. Dispatch FCM Push Notification to recipient's mobile device (if fcmToken exists)
+  notification.$locals.pushDelivery = 'not_configured';
   if (isFirebaseConfigured()) {
+    notification.$locals.pushDelivery = 'no_device_token';
     try {
       const recipientUser = await User.findById(recipient).select("fcmToken");
       if (recipientUser && recipientUser.fcmToken) {
@@ -78,8 +80,10 @@ const createNotification = async (
         };
 
         await messaging.send(payload);
+        notification.$locals.pushDelivery = 'sent';
       }
     } catch (fcmErr) {
+      notification.$locals.pushDelivery = 'failed';
       // Auto-clean stale or expired FCM tokens
       if (
         fcmErr.code === "messaging/registration-token-not-registered" ||

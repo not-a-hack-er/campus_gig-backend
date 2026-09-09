@@ -204,7 +204,9 @@ const updateGig = async (gigId, userId, updateData) => {
 
   return await Gig.findByIdAndUpdate(
     gigId,
-    { $set: updateData },
+    { $set: Object.fromEntries(Object.entries(updateData).filter(([key]) =>
+      ['title', 'description', 'category', 'budget', 'duration', 'location', 'deadline', 'skillsRequired', 'tags', 'status'].includes(key)
+    )) },
     { new: true, runValidators: true }
   ).populate("postedBy", "name email avatar college rating totalReviews");
 };

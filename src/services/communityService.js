@@ -112,6 +112,14 @@ const leaveCommunity = async (communityId, userId) => {
 
 // Create a post inside a community
 const createPost = async (communityId, authorId, content) => {
+  const community = await Community.findById(communityId);
+  if (!community) throw new ApiError(404, 'Community not found');
+  if (!community.members.some(id => String(id) === String(authorId))) {
+    throw new ApiError(403, 'Join the community before posting');
+  }
+  if (typeof content !== 'string' || !content.trim() || content.length > 10000) {
+    throw new ApiError(400, 'Post content must contain 1 to 10000 characters');
+  }
   return await CommunityPost.create({
     community: communityId,
     author:    authorId,
@@ -120,7 +128,12 @@ const createPost = async (communityId, authorId, content) => {
 };
 
 // Get all posts in a community, newest first
-const getCommunityFeed = async (communityId) => {
+const getCommunityFeed = async (communityId, userId) => {
+  const community = await Community.findById(communityId);
+  if (!community) throw new ApiError(404, 'Community not found');
+  if (community.isPrivate && !community.members.some(id => String(id) === String(userId))) {
+    throw new ApiError(403, 'Join the community to view its private feed');
+  }
   return await CommunityPost.find({ community: communityId })
     .populate("author", "name")
     .sort({ createdAt: -1 });

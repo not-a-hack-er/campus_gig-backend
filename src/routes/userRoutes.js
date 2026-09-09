@@ -19,6 +19,7 @@ const {
   getUserGigsController,
   getUserReviewsPublicController,
   getCollegesController,
+  deleteMyAccountController,
 } = require('../controllers/userController');
 
 // ── Public (no auth) — fixed paths BEFORE /:id ───────────────────
@@ -34,6 +35,7 @@ router.post('/me/change-password', protect, changePasswordController);    // cha
 router.get('/me/stats',         protect, getMyStatsController);           // dashboard stats
 router.get('/me/gigs',          protect, getMyGigsController);            // own posted gigs
 router.get('/me/reviews',       protect, getMyReviewsController);         // reviews I received
+router.delete('/me',            protect, deleteMyAccountController);       // permanent account deletion
 
 // ── Public profiles — parameterised paths LAST ───────────────────
 router.get('/:id',              getUserByIdController);                   // public user profile

@@ -23,6 +23,7 @@ const path     = require("path");
 const fs       = require("fs");
 const ApiError = require("../utils/ApiError");
 const { env }  = require("../config/env");
+const { databaseStorage } = require('./databaseUpload');
 
 // ─── File Type Filter ─────────────────────────────────────────────────────────
 // Applied regardless of storage backend — only accept known image types.
@@ -59,6 +60,8 @@ if (env.CLOUDINARY_URL) {
       { quality: "auto:good" },
     ],
   });
+} else if (env.NODE_ENV === 'production') {
+  storage = databaseStorage('avatars');
 } else {
   // ── Local Disk Storage (Development Fallback) ────────────────────────────────
   // Files are saved to /uploads/avatars/ relative to the project root.
@@ -141,6 +144,8 @@ if (env.CLOUDINARY_URL) {
       resource_type: "raw",   // Required for non-image files (PDF, DOC, DOCX)
     }),
   });
+} else if (env.NODE_ENV === 'production') {
+  resumeStorage = databaseStorage('resumes');
 } else {
   // Local disk fallback for development
   const fs = require("fs");

@@ -196,14 +196,14 @@ const googleAuthUser = async ({ idToken, name, email }) => {
     } catch (verifyError) {
       throw new ApiError(401, "Invalid Google token. Please sign in again.");
     }
-  } else if (email && typeof email === "string" && email.trim()) {
+  } else if (env.NODE_ENV !== "production" && email && typeof email === "string" && email.trim()) {
     // ── Mode 2: Direct Device Account Picker ────────────────────────────────
     userEmail = email.trim().toLowerCase();
     userName  = (name && typeof name === "string" && name.trim())
       ? name.trim()
       : userEmail.split("@")[0];
   } else {
-    throw new ApiError(400, "Email or idToken is required for Google login");
+    throw new ApiError(400, "A verified Google ID token is required");
   }
 
   if (!userEmail) {

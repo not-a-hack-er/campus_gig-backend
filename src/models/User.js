@@ -139,6 +139,10 @@ userSchema.set("toJSON", {
   versionKey: false,
   transform: (doc, ret) => {
     delete ret.id; // Remove duplicate 'id' field (we use '_id')
+    delete ret.password;
+    delete ret.passwordResetOtp;
+    delete ret.passwordResetOtpExpiry;
+    delete ret.fcmToken;
     return ret;
   },
 });
