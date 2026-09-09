@@ -43,6 +43,39 @@ describe('POST /api/auth/register', () => {
     expect(res.body.user?.password).toBeUndefined();
   });
 
+  test('persists onboarding profile fields during registration', async () => {
+    const profile = {
+      name: 'Onboarding User',
+      email: 'onboarding@test.com',
+      password: 'SecurePass123',
+      role: 'student',
+      college: 'G.L. Bajaj Institute of Technology and Management',
+      branch: 'Computer Science and Engineering',
+      yearOfStudy: '3rd',
+      skills: ['Flutter', 'Firebase', 'flutter'],
+    };
+    const registered = await request(app).post('/api/auth/register').send(profile);
+    expect(registered.status).toBe(201);
+    expect(registered.body.user).toMatchObject({
+      role: profile.role,
+      college: profile.college,
+      branch: profile.branch,
+      yearOfStudy: profile.yearOfStudy,
+      skills: ['Flutter', 'Firebase'],
+    });
+
+    const persisted = await request(app)
+      .get('/api/users/me')
+      .set('Authorization', `Bearer ${registered.body.token}`);
+    expect(persisted.status).toBe(200);
+    expect(persisted.body).toMatchObject({
+      college: profile.college,
+      branch: profile.branch,
+      yearOfStudy: profile.yearOfStudy,
+      skills: ['Flutter', 'Firebase'],
+    });
+  });
+
   test('rejects duplicate email with 400', async () => {
     const res = await request(app).post('/api/auth/register').send(validUser);
     expect(res.status).toBe(400);
@@ -114,6 +147,20 @@ describe('POST /api/auth/login', () => {
       email: { $gt: '' }, password: { $gt: '' }
     });
     expect(res.status).not.toBe(200);
+  });
+
+  // BUG-12 REGRESSION TEST: login must work with mixed-case email.
+  // registerUser lowercases email before storing (User schema lowercase:true).
+  // loginUser was NOT normalizing the query email, causing a miss.
+  test('BUG-12: logs in successfully with mixed-case email (case-insensitive)', async () => {
+    // The user was registered as 'login@test.com' (all lowercase)
+    // Sending 'LOGIN@TEST.COM' must match the same user.
+    const res = await request(app).post('/api/auth/login').send({
+      email: 'LOGIN@TEST.COM', password: 'MyPass123'
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeDefined();
+    expect(res.body.user.email).toBe('login@test.com'); // Always stored lowercase
   });
 });
 

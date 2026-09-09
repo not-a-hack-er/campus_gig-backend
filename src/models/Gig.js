@@ -14,6 +14,23 @@
 
 const mongoose = require("mongoose");
 
+// Accept an empty deadline for backwards compatibility, otherwise require a
+// real calendar date in the API's YYYY-MM-DD format. Date.parse alone is too
+// permissive (for example, it can normalise an invalid month rather than fail).
+const isValidDeadline = (value) => {
+  if (value === undefined || value === null || value === "") return true;
+  if (typeof value !== "string") return false;
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+
+  const [, year, month, day] = match.map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day;
+};
+
 const gigSchema = new mongoose.Schema(
   {
     title:       { type: String, required: true, trim: true },
@@ -51,11 +68,19 @@ const gigSchema = new mongoose.Schema(
 
     duration: { type: String, default: "" }, // e.g. "2 weeks"
     location: { type: String, default: "" }, // e.g. "Remote" or "Mumbai"
-    deadline: { type: String, default: "" }, // e.g. "2025-12-01"
+    deadline: {
+      type: String,
+      default: "",
+      trim: true,
+      validate: {
+        validator: isValidDeadline,
+        message: "Deadline must be a real date in YYYY-MM-DD format",
+      },
+    },
     tags:     { type: [String], default: [] },
 
     // Number of applications received (incremented when someone applies)
-    applicationsCount: { type: Number, default: 0 },
+    applicationsCount: { type: Number, default: 0, min: 0 },
 
     // ── Completion OTP (hidden from all queries by default) ───────────────────
     // Generated when the worker submits work. Sent to employer via notification.

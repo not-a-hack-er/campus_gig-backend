@@ -71,11 +71,14 @@ const autoCompleteGig = async (gig) => {
   // 5. Notify both parties
   try {
     // Notify the employer
+    // BUG-13 FIX: Use second-person ("you did not confirm") since this notification
+    // is sent TO the employer. The previous message said "because the employer did not
+    // confirm" which reads incorrectly when addressed to the employer themselves.
     await createNotification(
       posterId,
       "⏱️ Gig Auto-Completed",
-      `"${gigTitle}" was automatically marked as completed because the employer ` +
-      `did not confirm within ${AUTO_COMPLETE_DAYS} days of work submission. ` +
+      `"${gigTitle}" was automatically marked as completed because you did not confirm ` +
+      `within ${AUTO_COMPLETE_DAYS} days of the worker submitting their work. ` +
       `You can now leave a review for the worker!`,
       {
         type:          "gig_auto_completed",

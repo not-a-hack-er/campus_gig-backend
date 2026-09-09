@@ -100,6 +100,39 @@ describe('POST /api/gigs', () => {
     expect(res.body.status).toBe('open'); // Returned as lowercase via getter
     await request(app).delete(`/api/gigs/${res.body._id}`).set('Authorization', `Bearer ${token}`);
   });
+
+  test('rejects an invalid calendar deadline', async () => {
+    const res = await request(app)
+      .post('/api/gigs')
+      .set('Authorization', 'Bearer ' + token)
+      .send({
+        title: 'Invalid deadline',
+        description: 'The deadline must be a real date',
+        budget: 1000,
+        category: 'Development',
+        deadline: '2026-29-08',
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.details?.deadline).toContain('Deadline must be a real date');
+  });
+
+  test('accepts a valid leap-day deadline', async () => {
+    const res = await request(app)
+      .post('/api/gigs')
+      .set('Authorization', 'Bearer ' + token)
+      .send({
+        title: 'Leap day deadline',
+        description: 'A valid calendar date should be accepted',
+        budget: 1000,
+        category: 'Development',
+        deadline: '2028-02-29',
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.deadline).toBe('2028-02-29');
+    await request(app).delete('/api/gigs/' + res.body._id).set('Authorization', 'Bearer ' + token);
+  });
 });
 
 // ── READ ──────────────────────────────────────────────────────────────────────

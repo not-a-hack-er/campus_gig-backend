@@ -34,7 +34,7 @@ const updateUserProfile = async (userId, bodyData) => {
 
   const allowedFields = [
     "name", "bio", "avatar", "college", "branch",
-    "graduationYear", "skills", "github", "linkedin", "portfolio", "resumeUrl", "fcmToken",
+    "yearOfStudy", "graduationYear", "skills", "github", "linkedin", "portfolio", "resumeUrl", "fcmToken",
   ];
 
   const updates = {};

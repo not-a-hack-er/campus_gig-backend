@@ -29,7 +29,7 @@ const jwt      = require("jsonwebtoken");
 //   If two requests race, only ONE insert wins; the other gets a 11000
 //   MongoServerError which our global errorHandler turns into a clean
 //   409 "email already exists" response.
-const registerUser = async (name, email, password) => {
+const registerUser = async (name, email, password, profile = {}) => {
   // Validate input fields explicitly before database/cryptographic operations
   if (typeof name !== "string" || !name.trim()) {
     throw new ApiError(400, "Name is required and must be a string");
@@ -46,6 +46,28 @@ const registerUser = async (name, email, password) => {
   if (password.length < 6) {
     throw new ApiError(400, "Password must be at least 6 characters");
   }
+
+  const role = profile.role || "student";
+  if (!["student", "employer"].includes(role)) {
+    throw new ApiError(400, "Role must be student or employer");
+  }
+  const yearOfStudy = typeof profile.yearOfStudy === "string" ? profile.yearOfStudy.trim() : "";
+  if (yearOfStudy && !["1st", "2nd", "3rd", "4th", "5th+"].includes(yearOfStudy)) {
+    throw new ApiError(400, "Invalid year of study");
+  }
+  const seenSkills = new Set();
+  const skills = Array.isArray(profile.skills)
+    ? profile.skills
+      .filter((skill) => typeof skill === "string")
+      .map((skill) => skill.trim().slice(0, 50))
+      .filter((skill) => {
+        const normalized = skill.toLowerCase();
+        if (!skill || seenSkills.has(normalized)) return false;
+        seenSkills.add(normalized);
+        return true;
+      })
+      .slice(0, 20)
+    : [];
 
   // Normalise email so the unique-index check is case-insensitive
   const normEmail = email.trim().toLowerCase();
@@ -69,6 +91,11 @@ const registerUser = async (name, email, password) => {
     name: name.trim(),
     email: normEmail,
     password: hashedPassword,
+    role,
+    college: typeof profile.college === "string" ? profile.college.trim() : "",
+    branch: typeof profile.branch === "string" ? profile.branch.trim() : "",
+    yearOfStudy,
+    skills,
   });
 
   // Strip password from returned user object
@@ -91,8 +118,15 @@ const loginUser = async (email, password) => {
     throw new ApiError(400, "Password is required and must be a string");
   }
 
+  // BUG-12 FIX: Normalize email to lowercase before lookup.
+  // registerUser stores the email lowercased (User schema has lowercase:true),
+  // but findOne() queries the raw stored value — if the caller sends mixed-case
+  // (e.g. from Google account picker: "Test@Example.COM"), the query would find
+  // nothing and return 401 even with the correct password.
+  const normEmail = email.trim().toLowerCase();
+
   // Find user by email and also fetch the password field (hidden by default)
-  const user = await User.findOne({ email }).select("+password");
+  const user = await User.findOne({ email: normEmail }).select("+password");
 
   // Return the SAME error message whether the email doesn't exist
   // or the password is wrong — prevents leaking which emails are registered.
@@ -198,7 +232,12 @@ const googleAuthUser = async ({ idToken, name, email }) => {
   return { user: userObj, token };
 };
 
-module.exports = { registerUser, loginUser, googleAuthUser, forgotPassword, verifyOtp, resetPassword };
+// BUG-04 FIX: module.exports moved to the end of the file.
+// Previously it was at line 201 (mid-file), before the forgotPassword / verifyOtp /
+// resetPassword function declarations. Function declarations are hoisted in JS so
+// the code worked, but it was a dangerous pattern — converting any of those
+// functions to a const arrow function would silently break the exports.
+// It is now at the very end, after all definitions, which is conventional and safe.
 
 // ─── Forgot Password — Step 1: Generate & Email OTP ───────────────────────────
 //
@@ -327,3 +366,5 @@ async function resetPassword(resetToken, newPassword) {
 
   return { message: "Password reset successfully. You can now log in with your new password." };
 }
+
+module.exports = { registerUser, loginUser, googleAuthUser, forgotPassword, verifyOtp, resetPassword };

@@ -208,7 +208,7 @@ const getMyApplications = async (userId) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const updateApplicationStatus = async (applicationId, status, callerUserId) => {
   // Pre-flight: load the application with required relations for auth checks
-  const application = await Application.findById(applicationId)
+  let application = await Application.findById(applicationId)
     .populate("applicant", APPLICANT_POPULATE)
     .populate(GIG_POPULATE_PATH);
 
@@ -285,11 +285,27 @@ const updateApplicationStatus = async (applicationId, status, callerUserId) => {
       throw saveErr;
     }
   } else if (uppercaseStatus === "WITHDRAWN") {
-    // Update application + decrement counter (no cross-doc invariant to break)
-    application.status = status;
-    await application.save();
-    await Gig.findByIdAndUpdate(
-      application.gig._id,
+    // Atomically consume the PENDING state. Without this CAS, two concurrent
+    // withdrawal requests can both read PENDING and decrement the gig counter
+    // twice, eventually making applicationsCount negative.
+    const withdrawnApplication = await Application.findOneAndUpdate(
+      { _id: applicationId, applicant: callerUserId, status: "PENDING" },
+      { $set: { status: "WITHDRAWN" } },
+      { new: true, runValidators: true }
+    );
+
+    if (!withdrawnApplication) {
+      throw new ApiError(409, "This application has already been updated.");
+    }
+
+    // Retain the populated gig/applicant data loaded above for the response
+    // and notification, while reflecting the persisted status.
+    application.status = withdrawnApplication.status;
+
+    // Do not decrement a corrupted/legacy counter below zero. The repair
+    // utility reconciles existing records with their source applications.
+    await Gig.findOneAndUpdate(
+      { _id: application.gig._id, applicationsCount: { $gt: 0 } },
       { $inc: { applicationsCount: -1 } }
     );
 

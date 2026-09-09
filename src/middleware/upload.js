@@ -20,6 +20,7 @@
 
 const multer   = require("multer");
 const path     = require("path");
+const fs       = require("fs");
 const ApiError = require("../utils/ApiError");
 const { env }  = require("../config/env");
 
@@ -41,25 +42,22 @@ let storage;
 if (env.CLOUDINARY_URL) {
   // ── Cloud Storage (Production) ───────────────────────────────────────────────
   // Uploads go directly to Cloudinary — no local disk involved.
-  const cloudinary      = require("cloudinary").v2;
-  const { CloudinaryStorage } = require("multer-storage-cloudinary");
+  const cloudinary      = require("cloudinary");
+  const cloudinaryStorage = require("multer-storage-cloudinary");
 
   // Cloudinary SDK auto-configures from CLOUDINARY_URL env var
   // Format: cloudinary://api_key:api_secret@cloud_name
   cloudinary.config({ cloudinary_url: env.CLOUDINARY_URL });
 
-  storage = new CloudinaryStorage({
+  storage = cloudinaryStorage({
     cloudinary,
-    params: async (req, file) => ({
-      folder:         "campus-gig/avatars",                    // Folder in your Cloudinary account
-      public_id:      `avatar-${req.user.id}-${Date.now()}`,   // Deterministic filename
-      allowed_formats: ["jpg", "jpeg", "png", "webp", "gif"],  // Server-side type guard
-      transformation: [
-        // Auto-resize to a sensible avatar size and strip EXIF metadata for privacy
-        { width: 400, height: 400, crop: "fill", gravity: "face" },
-        { quality: "auto:good" },
-      ],
-    }),
+    folder: "campus-gig/avatars",
+    filename: (req, file, cb) => cb(null, `avatar-${req.user.id}-${Date.now()}`),
+    allowedFormats: ["jpg", "jpeg", "png", "webp", "gif"],
+    transformation: [
+      { width: 400, height: 400, crop: "fill", gravity: "face" },
+      { quality: "auto:good" },
+    ],
   });
 } else {
   // ── Local Disk Storage (Development Fallback) ────────────────────────────────
@@ -69,9 +67,12 @@ if (env.CLOUDINARY_URL) {
     console.warn("[upload] ⚠️  Using local disk storage in production — set CLOUDINARY_URL");
   }
 
+  const avatarDir = path.join(__dirname, "../../uploads/avatars");
+  if (!fs.existsSync(avatarDir)) fs.mkdirSync(avatarDir, { recursive: true });
+
   storage = multer.diskStorage({
     destination: (req, file, cb) => {
-      cb(null, path.join(__dirname, "../../uploads/avatars"));
+      cb(null, avatarDir);
     },
     filename: (req, file, cb) => {
       const extension = path.extname(file.originalname).toLowerCase() || ".jpg";
@@ -127,14 +128,14 @@ let resumeStorage;
 
 if (env.CLOUDINARY_URL) {
   // Upload resume to Cloudinary as a raw (non-image) resource
-  const cloudinary      = require("cloudinary").v2;
-  const { CloudinaryStorage } = require("multer-storage-cloudinary");
+  const cloudinary      = require("cloudinary");
+  const cloudinaryStorage = require("multer-storage-cloudinary");
 
   cloudinary.config({ cloudinary_url: env.CLOUDINARY_URL });
 
-  resumeStorage = new CloudinaryStorage({
+  resumeStorage = cloudinaryStorage({
     cloudinary,
-    params: async (req, file) => ({
+    params: (req, file, cb) => cb(null, {
       folder:        "campus-gig/resumes",
       public_id:     `resume-${req.user.id}-${Date.now()}`,
       resource_type: "raw",   // Required for non-image files (PDF, DOC, DOCX)

@@ -33,11 +33,18 @@ const userSchema = new mongoose.Schema(
       select: false,      // Never return password in queries by default
     },
 
+    role: {
+      type: String,
+      enum: ["student", "employer"],
+      default: "student",
+    },
+
     // ── Profile Details ─────────────────────────────────────
     bio:            { type: String,   default: "", maxlength: 500 },
     avatar:         { type: String,   default: "" }, // Profile picture URL
     college:        { type: String,   default: "" },
     branch:         { type: String,   default: "" },
+    yearOfStudy:    { type: String,   default: "", enum: ["", "1st", "2nd", "3rd", "4th", "5th+"] },
     graduationYear: { type: Number },
 
     // ── Skills ──────────────────────────────────────────────

@@ -11,8 +11,14 @@ const ApiResponse = require("../utils/ApiResponse");
 // POST /api/auth/register
 const register = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
-    const result = await registerUser(name, email, password);
+    const { name, email, password, role, college, branch, yearOfStudy, skills } = req.body;
+    const result = await registerUser(name, email, password, {
+      role,
+      college,
+      branch,
+      yearOfStudy,
+      skills,
+    });
     return res.status(201).json(new ApiResponse(true, "User Registered", result));
   } catch (error) {
     next(error); // Pass error to global error handler

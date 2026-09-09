@@ -56,7 +56,9 @@ const uploadAvatarController = async (req, res, next) => {
       throw new ApiError(400, 'No image file received. Send the file as a multipart field named "avatar".');
     }
 
-    const avatarUrl = `${req.protocol}://${req.get("host")}/uploads/avatars/${req.file.filename}`;
+    const avatarUrl = req.file.path
+      ? req.file.path
+      : `${req.protocol}://${req.get("host")}/uploads/avatars/${req.file.filename}`;
     const user = await userService.updateUserAvatar(req.user.id, avatarUrl);
 
     return res.status(200).json(

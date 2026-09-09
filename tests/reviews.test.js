@@ -129,3 +129,22 @@ describe('GET /api/reviews/:userId', () => {
     expect(res.status).toBe(400);
   });
 });
+
+// ── BUG-08 REGRESSION: /gig/:gigId route ordering ────────────────────────────
+//
+// Previously GET /api/reviews/gig/:gigId was registered AFTER GET /:userId.
+// Express matched /gig/abc123 with userId="gig" and called getUserReviewsController
+// instead of getGigReviewsController, returning a 400 CastError ("gig" is not
+// a valid ObjectId) instead of an array of reviews.
+
+describe('GET /api/reviews/gig/:gigId (BUG-08 regression)', () => {
+  test('BUG-08: /api/reviews/gig/:gigId returns reviews array (not a 400 CastError)', async () => {
+    // Use a valid (but non-existent) ObjectId — the route must reach getGigReviewsController,
+    // which returns an empty array for a gig with no reviews.
+    // Before the fix this returned 400 because /:userId captured "gig" as a userId.
+    const fakeGigId = '000000000000000000000001';
+    const res = await request(app).get(`/api/reviews/gig/${fakeGigId}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true); // Must be an array, not an error object
+  });
+});

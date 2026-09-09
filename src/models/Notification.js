@@ -25,6 +25,7 @@ const notificationSchema = new mongoose.Schema(
     // ID of the related document (e.g. the application ID)
     referenceId:   { type: String, default: "" },
     referenceType: { type: String, default: "" }, // e.g. "Application"
+    data: { type: Map, of: String, default: {} },
 
     // Has the user seen this notification?
     isRead: { type: Boolean, default: false },

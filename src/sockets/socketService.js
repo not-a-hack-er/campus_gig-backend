@@ -5,6 +5,8 @@
 // to emit real-time WebSocket events to connected users.
 // ============================================================
 
+const logger = require("../config/logger");
+
 let ioInstance = null;
 
 const setIo = (io) => {
@@ -26,7 +28,9 @@ const getIo = () => {
 const emitToUser = (userId, eventName, data) => {
   if (ioInstance && userId) {
     ioInstance.to(userId.toString()).emit(eventName, data);
-    console.log(`[SocketService] Emitted ${eventName} to user room ${userId}`);
+    // BUG-11 FIX: Use structured logger instead of console.log.
+    // This fired on every message/notification/gig event, flooding production logs.
+    logger.debug({ userId, eventName }, "[SocketService] Event emitted to user room");
   }
 };
 

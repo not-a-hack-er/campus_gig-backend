@@ -34,6 +34,7 @@ const {
   saveMessage,
   markMessagesAsRead,
 } = require("../services/chatService");
+const { createNotification } = require("../services/notificationService");
 
 // Safe fields that are allowed to travel with a chat message.
 // NOTE: `password` is excluded via User schema's `select: false`, but we
@@ -100,6 +101,15 @@ const chatSocket = (io) => {
         if (!receiverId || typeof receiverId !== "string" || !receiverId.trim()) return;
         if (!content   || typeof content    !== "string" || !content.trim())    return;
 
+        // BUG-03 FIX: Require gigId before attempting to find/create a conversation.
+        // The Conversation schema marks `gig` as required — calling createConversation
+        // without a gigId causes Mongoose to throw a ValidationError: "Gig is required".
+        if (!gigId || typeof gigId !== "string" || !gigId.trim()) {
+          socket.emit("error", { message: "gigId is required to send a message." });
+          return;
+        }
+        const validGigId = gigId.trim();
+
         // Rate-limit
         const now = Date.now();
         if (now - lastMessageAt < MESSAGE_INTERVAL_MS) {
@@ -109,7 +119,6 @@ const chatSocket = (io) => {
         lastMessageAt = now;
 
         // Resolve or create the conversation between the two users
-        const validGigId = (gigId && typeof gigId === "string" && gigId.trim()) ? gigId.trim() : null;
         const conversation = await createConversation(userId, receiverId, validGigId);
 
         // Persist the message
@@ -139,6 +148,23 @@ const chatSocket = (io) => {
           io.to(userId).emit("conversation_updated", convUpdate);
         }
 
+        const senderName = populated.sender?.name || "Someone";
+        await createNotification(
+          receiverId,
+          `New message from ${senderName}`,
+          content.trim(),
+          {
+            type: "new_message",
+            referenceId: conversation._id.toString(),
+            referenceType: "Conversation",
+            data: {
+              senderId: userId,
+              senderName,
+              gigId: validGigId,
+            },
+          }
+        );
+
       } catch (error) {
         console.error(`[Socket] send_message error (user=${userId}):`, error.message);
         socket.emit("error", { message: "Failed to send message. Please try again." });
@@ -159,8 +185,29 @@ const chatSocket = (io) => {
         const { senderId, gigId } = data || {};
         if (!senderId || typeof senderId !== "string") return;
 
-        const validGigId = (gigId && typeof gigId === "string" && gigId.trim()) ? gigId.trim() : null;
-        const conversation = await createConversation(userId, senderId, validGigId);
+        // BUG-06 FIX: Use findOne instead of createConversation.
+        // mark_read should NEVER create a conversation as a side-effect.
+        // If no conversation exists between these two users yet, there are
+        // no messages to mark as read — simply return silently.
+        const sorted = [userId, senderId].sort();
+        const query = { participants: { $all: sorted, $size: 2 } };
+        if (gigId && typeof gigId === "string" && gigId.trim()) {
+          query.gig = gigId.trim();
+        }
+
+        const Conversation = require("../models/Conversation");
+        let conversation = await Conversation.findOne(query);
+
+        // Fallback: search by participants only if gigId search yielded nothing
+        if (!conversation && gigId) {
+          conversation = await Conversation.findOne({
+            participants: { $all: sorted, $size: 2 },
+          });
+        }
+
+        // No conversation exists yet — nothing to mark as read
+        if (!conversation) return;
+
         await markMessagesAsRead(conversation._id, userId);
 
         // Notify the original sender so their outgoing checkmarks update live

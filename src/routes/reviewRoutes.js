@@ -9,14 +9,19 @@ const {
 
 // IMPORTANT: Specific routes (/user/:userId, /gig/:gigId) MUST be registered BEFORE
 // parameterised routes (/:userId). Express matches top-down, so /:userId
-// would capture "/user/abc" with userId="user" if placed first.
+// would capture "/gig/abc" with userId="gig" if placed first.
+
+// BUG-08 FIX: /gig/:gigId MUST be declared before /:userId.
+// Previously /:userId was above /gig/:gigId, which caused requests to
+// /api/reviews/gig/abc123 to match /:userId with userId="gig" and call
+// getUserReviewsController instead of getGigReviewsController.
+
+// Fetch all reviews for a specific gig — MUST come before /:userId
+router.get('/gig/:gigId',   getGigReviewsController);  // /api/reviews/gig/:gigId
 
 // Fetch reviews for a user — supports both URL styles
 router.get('/user/:userId', getUserReviewsController); // /api/reviews/user/:id
 router.get('/:userId',      getUserReviewsController); // /api/reviews/:id
-
-// Fetch all reviews for a specific gig
-router.get('/gig/:gigId',   getGigReviewsController);  // /api/reviews/gig/:gigId
 
 // Create a review — supports both URL styles
 // Optional body field: gigId (links review to a completed gig)

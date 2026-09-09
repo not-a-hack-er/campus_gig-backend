@@ -26,8 +26,13 @@ const createNotification = async (
   recipient,
   title,
   message,
-  { type = "", referenceId = "", referenceType = "" } = {}
+  { type = "", referenceId = "", referenceType = "", data = {} } = {}
 ) => {
+  const stringData = Object.fromEntries(
+    Object.entries(data || {})
+      .filter(([, value]) => value !== undefined && value !== null)
+      .map(([key, value]) => [key, String(value)])
+  );
   const notification = await Notification.create({
     recipient,
     title,
@@ -35,6 +40,7 @@ const createNotification = async (
     type,
     referenceId,
     referenceType,
+    data: stringData,
   });
 
   // 1. Emit instantly to recipient's private socket room (if connected online)
@@ -60,6 +66,7 @@ const createNotification = async (
             type: type || "",
             referenceId: referenceId ? String(referenceId) : "",
             referenceType: referenceType || "",
+            ...stringData,
           },
           android: {
             priority: "high",

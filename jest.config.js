@@ -18,7 +18,4 @@ module.exports = {
   // Show verbose output (each test name)
   verbose: true,
 
-  // Force Jest to exit after all tests finish
-  // (prevents hanging due to open MongoDB connections)
-  forceExit: true,
 };

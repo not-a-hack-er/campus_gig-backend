@@ -207,6 +207,42 @@ describe('PATCH /api/applications/:id/status', () => {
     expect(res.body.status).toBe('withdrawn');
   });
 
+  test('allows only one concurrent withdrawal and never decrements below zero', async () => {
+    const gigRes = await request(app)
+      .post('/api/gigs')
+      .set('Authorization', 'Bearer ' + ownerToken)
+      .send({
+        title: 'Concurrent withdrawal guard',
+        description: 'Tests the atomic pending-to-withdrawn transition',
+        budget: 4000,
+        category: 'Test',
+      });
+    const guardedGigId = gigRes.body._id;
+
+    const appRes = await request(app)
+      .post('/api/applications/' + guardedGigId)
+      .set('Authorization', 'Bearer ' + thirdToken)
+      .send({ proposal: 'Concurrent withdrawal proposal', expectedBudget: 3800 });
+    const pendingAppId = appRes.body._id;
+
+    const [first, second] = await Promise.all([
+      request(app)
+        .patch('/api/applications/' + pendingAppId + '/status')
+        .set('Authorization', 'Bearer ' + thirdToken)
+        .send({ status: 'WITHDRAWN' }),
+      request(app)
+        .patch('/api/applications/' + pendingAppId + '/status')
+        .set('Authorization', 'Bearer ' + thirdToken)
+        .send({ status: 'WITHDRAWN' }),
+    ]);
+
+    expect([first.status, second.status].sort()).toEqual([200, 409]);
+
+    const gigAfterWithdrawals = await request(app).get('/api/gigs/' + guardedGigId);
+    expect(gigAfterWithdrawals.status).toBe(200);
+    expect(gigAfterWithdrawals.body.applicationsCount).toBe(0);
+  });
+
   test('blocks applying for a new gig when worker already has an active hired gig in progress', async () => {
     const gigRes = await request(app)
       .post('/api/gigs')

@@ -151,9 +151,12 @@ const getAllGigs = async (filters = {}) => {
 };
 
 // Get a single gig by its ID
+// BUG-20 FIX: Also populate acceptedApplicant so the Android Active Gig screen
+// can display the worker's name/avatar without a second round-trip.
 const getGigById = async (gigId) => {
   const gig = await Gig.findById(gigId)
-    .populate("postedBy", "name email avatar college rating totalReviews gigsPosted gigsCompleted");
+    .populate("postedBy", "name email avatar college rating totalReviews gigsPosted gigsCompleted")
+    .populate("acceptedApplicant", "name email avatar college rating totalReviews gigsCompleted");
 
   if (!gig) {
     throw new ApiError(404, "Gig Not Found");
@@ -250,10 +253,22 @@ const submitWork = async (gigId, applicantId, submittedUrl, submittedNote) => {
   if (!gig) throw new ApiError(404, "Gig Not Found");
 
   const currentStatus = (gig.status || "").toUpperCase();
-  if (!["IN_PROGRESS", "WORK_SUBMITTED"].includes(currentStatus)) {
+
+  // BUG-05 FIX: Block re-submission when work has already been submitted.
+  // Allowing re-submission would overwrite the accepted application's submission
+  // data and invalidate the OTP that the employer already received via notification.
+  if (currentStatus === "WORK_SUBMITTED") {
     throw new ApiError(
       400,
-      `Work can only be submitted when gig is "in_progress" or "work_submitted". Current status: "${gig.status}".`
+      `Work has already been submitted for this gig. ` +
+      `The employer has been notified. Wait for them to review and complete the gig.`
+    );
+  }
+
+  if (currentStatus !== "IN_PROGRESS") {
+    throw new ApiError(
+      400,
+      `Work can only be submitted when gig is "in_progress". Current status: "${gig.status}".`
     );
   }
 
@@ -432,32 +447,49 @@ const completeGig = async (gigId, employerId, otp) => {
   }
 
   const currentStatus = (gig.status || "").toUpperCase();
-  if (!["IN_PROGRESS", "WORK_SUBMITTED"].includes(currentStatus)) {
+
+  // BUG-10 FIX: Provide a clear, actionable error when the employer tries to
+  // complete a gig before the worker has submitted their work.
+  if (currentStatus === "IN_PROGRESS") {
     throw new ApiError(
       400,
-      `Gig can only be completed from "in_progress" or "work_submitted" state. ` +
+      `The worker has not yet submitted their work for this gig. ` +
+      `Wait for the worker to submit, then use the completion OTP you receive to confirm.`
+    );
+  }
+
+  if (currentStatus !== "WORK_SUBMITTED") {
+    throw new ApiError(
+      400,
+      `Gig can only be completed from "work_submitted" state. ` +
       `Current status: "${gig.status}".`
     );
   }
 
-  // Verify OTP — if caller is verified gig owner and presents an approval code/input, allow completion
-  let isOtpValid = false;
-  if (gig.completionOtp) {
-    if (gig.completionOtpExpiry && new Date() > new Date(gig.completionOtpExpiry)) {
-      // Expiry check — if owner is approving, auto-renew or validate
-      isOtpValid = isOwner;
-    } else {
-      isOtpValid = await bcrypt.compare(otp.trim(), gig.completionOtp);
-    }
+  // BUG-02 FIX: Strict OTP verification — no bypass.
+  // The OTP is always set when transitioning to WORK_SUBMITTED, so if it is
+  // somehow missing, return a clear error rather than silently allowing completion.
+  if (!gig.completionOtp) {
+    throw new ApiError(
+      500,
+      "Completion OTP is missing. Please use GET /api/gigs/:id/completion-otp to regenerate it."
+    );
   }
 
-  // If bcrypt match didn't trigger, but owner is approving directly with valid input length
-  if (!isOtpValid && isOwner && otp.trim().length >= 4) {
-    isOtpValid = true;
+  // Check OTP expiry
+  if (gig.completionOtpExpiry && new Date() > new Date(gig.completionOtpExpiry)) {
+    throw new ApiError(
+      400,
+      "Your completion OTP has expired. Use GET /api/gigs/:id/completion-otp to get a fresh code."
+    );
   }
+
+  // Constant-time bcrypt comparison — the ONLY way to pass this check is with the correct OTP.
+  // The previous bypass (any 4-char string = success) has been removed.
+  const isOtpValid = await bcrypt.compare(otp.trim(), gig.completionOtp);
 
   if (!isOtpValid) {
-    throw new ApiError(400, "Invalid completion OTP code.");
+    throw new ApiError(400, "Invalid completion OTP. Please check the code and try again.");
   }
 
   // ── All checks passed — commit the completion ─────────────────────────────

@@ -16,7 +16,13 @@ const logger = require("./logger");
 
 let messaging = null;
 
-try {
+// Tests must never attempt real OAuth or send a notification to Firebase.
+// JEST_WORKER_ID is set by Jest even when NODE_ENV came from a local .env file.
+const isTestEnvironment = process.env.NODE_ENV === "test" || Boolean(process.env.JEST_WORKER_ID);
+
+if (isTestEnvironment) {
+  logger.info("Firebase Admin SDK disabled for test environment");
+} else try {
   const { initializeApp, cert, getApps } = require("firebase-admin/app");
   const { getMessaging }                = require("firebase-admin/messaging");
 
