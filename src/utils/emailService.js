@@ -19,7 +19,13 @@
 // ============================================================
 
 require("dotenv").config();
+const dns = require("node:dns");
 const { env } = require("../config/env");
+
+// Render's free instances do not provide IPv6 egress. Nodemailer resolves
+// smtp.gmail.com through Node, so make IPv4 the preferred DNS result before
+// opening the SMTP connection.
+dns.setDefaultResultOrder("ipv4first");
 
 let transporter = null;
 
