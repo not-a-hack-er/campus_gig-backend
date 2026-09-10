@@ -19,6 +19,7 @@
 // ============================================================
 
 require("dotenv").config();
+const { env } = require("../config/env");
 
 let transporter = null;
 
@@ -29,16 +30,15 @@ const getTransporter = () => {
 
   const nodemailer = require("nodemailer");
 
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    // Return null — callers will fall back to console logging
+  if (!env.EMAIL_USER || !env.EMAIL_PASS) {
     return null;
   }
 
   transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+      user: env.EMAIL_USER,
+      pass: env.EMAIL_PASS,
     },
   });
 
@@ -50,22 +50,18 @@ const getTransporter = () => {
  *
  * @param {string} toEmail  — recipient email address
  * @param {string} otp      — plaintext 6-digit OTP (NOT hashed)
- * @returns {Promise<void>}
+ * @returns {Promise<boolean>} whether the provider accepted the message
  */
 const sendOtpEmail = async (toEmail, otp) => {
   const transport = getTransporter();
 
   if (!transport) {
-    // No email credentials configured — log to console for dev testing
-    console.warn(
-      `[emailService] ⚠️  EMAIL_USER/EMAIL_PASS not set.\n` +
-      `[emailService]    OTP for ${toEmail}: ${otp}  (valid 15 minutes)`
-    );
-    return;
+    console.warn("[emailService] EMAIL_USER/EMAIL_PASS not configured; no password-reset email was sent.");
+    return false;
   }
 
   const mailOptions = {
-    from:    `"CampusVault" <${process.env.EMAIL_USER}>`,
+    from:    env.EMAIL_FROM || `"CampusVault" <${env.EMAIL_USER}>`,
     to:      toEmail,
     subject: "🔑 Your CampusVault Password Reset OTP",
     html: `
@@ -88,8 +84,16 @@ const sendOtpEmail = async (toEmail, otp) => {
     `,
   };
 
-  await transport.sendMail(mailOptions);
-  console.log(`[emailService] OTP email sent to ${toEmail}`);
+  try {
+    await transport.sendMail(mailOptions);
+    console.log("[emailService] Password-reset OTP email accepted by provider");
+    return true;
+  } catch (error) {
+    console.error("[emailService] Password-reset email delivery failed", { message: error.message });
+    return false;
+  }
 };
 
-module.exports = { sendOtpEmail };
+const isEmailConfigured = () => Boolean(env.EMAIL_USER && env.EMAIL_PASS);
+
+module.exports = { sendOtpEmail, isEmailConfigured };

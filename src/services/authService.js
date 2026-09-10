@@ -9,7 +9,7 @@ const User     = require("../models/User");
 const ApiError = require("../utils/ApiError");
 const { env }  = require("../config/env");
 const { hashPassword, comparePassword, generateToken } = require("./authUtils");
-const { sendOtpEmail } = require("../utils/emailService");
+const { sendOtpEmail, isEmailConfigured } = require("../utils/emailService");
 const bcrypt   = require("bcryptjs");
 const crypto   = require("crypto");
 const jwt      = require("jsonwebtoken");
@@ -254,6 +254,13 @@ async function forgotPassword(email) {
     throw new ApiError(400, "Email is required");
   }
 
+  // Never claim that an email was sent when this deployment has no working
+  // mail provider. This used to make the Android flow advance with an OTP that
+  // only existed in server logs.
+  if (!isEmailConfigured()) {
+    throw new ApiError(503, "Password reset email is temporarily unavailable. Please try again later.");
+  }
+
   const normEmail = email.trim().toLowerCase();
   const user = await User.findOne({ email: normEmail });
 
@@ -267,13 +274,15 @@ async function forgotPassword(email) {
   const salt   = await bcrypt.genSalt(10);
   const hashedOtp = await bcrypt.hash(otp, salt);
 
-  // Store the hashed OTP + 15-minute expiry window on the user document
-  user.passwordResetOtp       = hashedOtp;
-  user.passwordResetOtpExpiry = new Date(Date.now() + 15 * 60 * 1000); // +15 min
-  await user.save({ validateBeforeSave: false });
+  // Do not create a usable OTP until the provider has accepted the email.
+  const emailSent = await sendOtpEmail(normEmail, otp);
+  if (!emailSent) {
+    throw new ApiError(503, "Password reset email is temporarily unavailable. Please try again later.");
+  }
 
-  // Send plaintext OTP via email (or log to console if email not configured)
-  await sendOtpEmail(normEmail, otp);
+  user.passwordResetOtp       = hashedOtp;
+  user.passwordResetOtpExpiry = new Date(Date.now() + 15 * 60 * 1000);
+  await user.save({ validateBeforeSave: false });
 
   return { message: "If that email is registered, an OTP has been sent." };
 }

@@ -30,6 +30,9 @@ const env = {
   REDIS_URL:                    process.env.REDIS_URL                    || null, // Socket.IO multi-instance scaling
   CLOUDINARY_URL:               process.env.CLOUDINARY_URL               || null, // Cloud avatar storage
   GOOGLE_CLIENT_ID:             process.env.GOOGLE_CLIENT_ID             || null, // Google OAuth verification
+  EMAIL_USER:                   process.env.EMAIL_USER                   || null,
+  EMAIL_PASS:                   process.env.EMAIL_PASS                   || null,
+  EMAIL_FROM:                   process.env.EMAIL_FROM                   || null,
   FIREBASE_SERVICE_ACCOUNT_KEY: process.env.FIREBASE_SERVICE_ACCOUNT_KEY || null, // FCM Push Notifications
 };
 
@@ -57,6 +60,9 @@ if (env.NODE_ENV === "production") {
   }
   if (!env.GOOGLE_CLIENT_ID) {
     console.warn("⚠️  GOOGLE_CLIENT_ID not set — Google OAuth login will be disabled");
+  }
+  if (!env.EMAIL_USER || !env.EMAIL_PASS) {
+    console.warn("⚠️  EMAIL_USER/EMAIL_PASS not set — password-reset emails will be unavailable");
   }
 }
 
