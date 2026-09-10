@@ -35,7 +35,16 @@ const getTransporter = () => {
   }
 
   transporter = nodemailer.createTransport({
-    service: "gmail",
+    // Render's SMTP resolver may prefer an IPv6 Gmail address even when the
+    // instance has no IPv6 egress. Pinning the connection to IPv4 prevents
+    // password-reset requests from hanging and timing out in production.
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    family: 4,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 20_000,
     auth: {
       user: env.EMAIL_USER,
       pass: env.EMAIL_PASS,
