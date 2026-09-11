@@ -33,6 +33,11 @@ const env = {
   EMAIL_USER:                   process.env.EMAIL_USER                   || null,
   EMAIL_PASS:                   process.env.EMAIL_PASS                   || null,
   EMAIL_FROM:                   process.env.EMAIL_FROM                   || null,
+  SMTP_HOST:                    process.env.SMTP_HOST                    || null,
+  SMTP_PORT:                    process.env.SMTP_PORT                    || null,
+  SMTP_SECURE:                  process.env.SMTP_SECURE                  || null,
+  SMTP_USER:                    process.env.SMTP_USER                    || null,
+  SMTP_PASS:                    process.env.SMTP_PASS                    || null,
   FIREBASE_SERVICE_ACCOUNT_KEY: process.env.FIREBASE_SERVICE_ACCOUNT_KEY || null, // FCM Push Notifications
 };
 

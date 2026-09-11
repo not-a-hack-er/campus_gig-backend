@@ -36,24 +36,30 @@ const getTransporter = () => {
 
   const nodemailer = require("nodemailer");
 
-  if (!env.EMAIL_USER || !env.EMAIL_PASS) {
+  const smtpUser = env.SMTP_USER || env.EMAIL_USER;
+  const smtpPass = env.SMTP_PASS || env.EMAIL_PASS;
+
+  if (!smtpUser || !smtpPass) {
     return null;
   }
 
+  const host   = env.SMTP_HOST || "smtp.gmail.com";
+  const port   = env.SMTP_PORT ? parseInt(env.SMTP_PORT, 10) : (env.SMTP_HOST ? 587 : 587);
+  const secure = env.SMTP_SECURE !== null && env.SMTP_SECURE !== undefined
+    ? (env.SMTP_SECURE === "true" || env.SMTP_SECURE === true)
+    : (port === 465);
+
   transporter = nodemailer.createTransport({
-    // Render's SMTP resolver may prefer an IPv6 Gmail address even when the
-    // instance has no IPv6 egress. Pinning the connection to IPv4 prevents
-    // password-reset requests from hanging and timing out in production.
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
+    host,
+    port,
+    secure,
     family: 4,
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 20_000,
     auth: {
-      user: env.EMAIL_USER,
-      pass: env.EMAIL_PASS,
+      user: smtpUser,
+      pass: smtpPass,
     },
   });
 
@@ -109,6 +115,6 @@ const sendOtpEmail = async (toEmail, otp) => {
   }
 };
 
-const isEmailConfigured = () => Boolean(env.EMAIL_USER && env.EMAIL_PASS);
+const isEmailConfigured = () => Boolean((env.SMTP_USER || env.EMAIL_USER) && (env.SMTP_PASS || env.EMAIL_PASS));
 
 module.exports = { sendOtpEmail, isEmailConfigured };
