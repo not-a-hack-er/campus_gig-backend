@@ -10,6 +10,25 @@ const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
+    // ── Clerk Identity (Web Auth) ──────────────────────────────
+    // Web users authenticate through Clerk. The Clerk user ID links this
+    // application profile to the Clerk identity. Android users do not have
+    // a clerkUserId — they use the legacy JWT + password flow.
+    // sparse: true means the unique index only applies when the field exists,
+    // so Android/legacy users (null clerkUserId) don’t violate the constraint.
+    clerkUserId: {
+      type:   String,
+      unique: true,
+      sparse: true,
+      index:  true,
+    },
+
+    // ── Profile Completion Gate ──────────────────────────────
+    // Web users must complete their profile (name, college) before accessing
+    // the application. Backend protect middleware enforces this in addition
+    // to the frontend redirect. Android users are always treated as complete.
+    profileComplete: { type: Boolean, default: false },
+
     // ── Basic Info ──────────────────────────────────────────
     name: {
       type: String,
@@ -28,9 +47,11 @@ const userSchema = new mongoose.Schema(
     },
 
     password: {
-      type: String,
-      required: [true, "Password is required"],
-      select: false,      // Never return password in queries by default
+      type:     String,
+      // NOT required — web users authenticate via Clerk and never have a password here.
+      // Android users still have a bcrypt-hashed password stored in this field.
+      required: false,
+      select:   false, // Never return password in queries by default
     },
 
     role: {
@@ -71,11 +92,12 @@ const userSchema = new mongoose.Schema(
     isVerified: { type: Boolean, default: false },
     isActive:   { type: Boolean, default: true },
 
-    // ── Password Reset (Forgot Password OTP) ────────────────
-    // These fields are hidden from all queries by default (select: false).
-    // They are only fetched internally when processing a password reset.
-    passwordResetOtp:    { type: String,  select: false }, // bcrypt-hashed 6-digit OTP
-    passwordResetOtpExpiry: { type: Date, select: false }, // OTP valid until this timestamp
+    // ── Password Reset (Android/Legacy Only) ────────────────────
+    // Web users use Clerk’s built-in password reset flow.
+    // Android users still use the 3-step OTP email reset flow.
+    // Hidden from all queries by default (select: false).
+    passwordResetOtp:       { type: String, select: false }, // bcrypt-hashed 6-digit OTP
+    passwordResetOtpExpiry: { type: Date,   select: false }, // OTP valid until this timestamp
   },
   {
     timestamps: true, // Adds createdAt and updatedAt fields automatically
@@ -84,6 +106,7 @@ const userSchema = new mongoose.Schema(
 
 // Index on email to speed up login lookups
 userSchema.index({ email: 1 });
+// clerkUserId index is defined inline on the field (sparse unique)
 
 // ─── Virtual Fields ───────────────────────────────────────────────────────────
 //
@@ -143,6 +166,7 @@ userSchema.set("toJSON", {
     delete ret.passwordResetOtp;
     delete ret.passwordResetOtpExpiry;
     delete ret.fcmToken;
+    delete ret.clerkUserId; // Never expose Clerk internal ID to clients
     return ret;
   },
 });

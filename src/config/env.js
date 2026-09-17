@@ -5,9 +5,14 @@
 // All other files import from here instead of reading
 // process.env directly — this makes them easier to test and change.
 //
-// PRODUCTION NOTE: Required vars (MONGODB_URI, JWT_SECRET) are
+// PRODUCTION NOTE: Required vars (MONGODB_URI, CLERK_SECRET_KEY) are
 // validated at startup — the process exits immediately if they
 // are missing so you get a clear error instead of a cryptic crash.
+//
+// AUTHENTICATION:
+//   Clerk (web)  — primary auth for the web frontend.
+//   JWT_SECRET   — kept for the Android app which still uses custom JWT.
+//   The auth middleware supports both simultaneously.
 //
 // OPTIONAL SERVICES:
 //   REDIS_URL        — enables Socket.IO horizontal scaling across multiple servers
@@ -20,10 +25,22 @@ require("dotenv").config(); // Load .env file into process.env
 const env = {
   PORT:             process.env.PORT        || 5000,
   MONGODB_URI:      process.env.MONGODB_URI,
-  JWT_SECRET:       process.env.JWT_SECRET,
   NODE_ENV:         process.env.NODE_ENV    || "development",
   CLIENT_URL:       process.env.CLIENT_URL  || "http://localhost:3000",
   LOG_LEVEL:        process.env.LOG_LEVEL   || "info",
+
+  // ── Clerk (Web Authentication) ─────────────────────────────
+  // CLERK_SECRET_KEY is required — used to verify Clerk session tokens server-side.
+  // CLERK_PUBLISHABLE_KEY is also required by @clerk/express to authenticate requests.
+  // CLERK_WEBHOOK_SECRET is required once you configure the webhook in the Clerk Dashboard.
+  CLERK_SECRET_KEY:        process.env.CLERK_SECRET_KEY,
+  CLERK_PUBLISHABLE_KEY:   process.env.CLERK_PUBLISHABLE_KEY,
+  CLERK_WEBHOOK_SECRET:    process.env.CLERK_WEBHOOK_SECRET     || null,
+
+  // ── Legacy JWT (Android App) ───────────────────────────────
+  // The Android app still uses custom JWT auth. JWT_SECRET is kept so the
+  // protect middleware can verify Android requests until Android migrates to Clerk.
+  JWT_SECRET:              process.env.JWT_SECRET               || null,
 
   // ── Optional Services (production scale-out) ───────────────
   // Set these in production to unlock each capability.
@@ -43,7 +60,7 @@ const env = {
 
 // ── Required variable validation ──────────────────────────────
 // Fail fast at startup so the error is obvious, not cryptic.
-const REQUIRED_VARS = ["MONGODB_URI", "JWT_SECRET"];
+const REQUIRED_VARS = ["MONGODB_URI", "CLERK_SECRET_KEY"];
 const missing = REQUIRED_VARS.filter((key) => !env[key]);
 
 if (missing.length > 0) {
@@ -68,6 +85,12 @@ if (env.NODE_ENV === "production") {
   }
   if (!env.EMAIL_USER || !env.EMAIL_PASS) {
     console.warn("⚠️  EMAIL_USER/EMAIL_PASS not set — password-reset emails will be unavailable");
+  }
+  if (!env.CLERK_WEBHOOK_SECRET) {
+    console.warn("⚠️  CLERK_WEBHOOK_SECRET not set — Clerk webhook verification will be skipped (configure in Clerk Dashboard)");
+  }
+  if (!env.JWT_SECRET) {
+    console.warn("⚠️  JWT_SECRET not set — Android app JWT auth will be disabled");
   }
 }
 

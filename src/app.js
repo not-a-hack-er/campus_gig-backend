@@ -22,6 +22,7 @@ const helmet  = require("helmet");
 const pinoHttp = require("pino-http");
 const compression = require("compression");
 const mongoSanitize = require("express-mongo-sanitize");
+const { clerkMiddleware } = require("@clerk/express");
 
 const { env }               = require("./config/env");
 const logger                = require("./config/logger");
@@ -40,6 +41,8 @@ const userRoutes         = require("./routes/userRoutes");
 const messageRoutes      = require("./routes/messageRoutes");
 const feedbackRoutes     = require("./routes/feedbackRoutes");
 const legalPages         = require("./routes/legalPages");
+const webhookRoutes      = require("./routes/webhookRoutes");
+const profileRoutes      = require("./routes/profileRoutes");
 
 const app = express();
 
@@ -89,7 +92,26 @@ app.use(pinoHttp({
   redact: ["req.headers.authorization", "req.headers.cookie"],
 }));
 
-// ─── Global Middleware ────────────────────────────────────────────────────────
+// ─── Clerk Middleware ─────────────────────────────────────────────────────────
+// clerkMiddleware() runs on every request and extracts the Clerk session context
+// (if present) into req.auth. It does NOT block unauthenticated requests —
+// that is done per-route by the protect/requireAuth middleware.
+// It must be registered early, before any route that uses getAuth().
+app.use(clerkMiddleware());
+
+// ─── Raw Body Capture for Clerk Webhooks ─────────────────────────────────────
+// svix signature verification requires the exact raw bytes of the request body.
+// This middleware saves it as req.rawBody BEFORE express.json() parses it.
+// Only applied to the webhook path for performance.
+app.use("/api/webhooks", express.raw({ type: "application/json" }), (req, res, next) => {
+  // express.raw gives us a Buffer; convert to string for svix
+  if (Buffer.isBuffer(req.body)) {
+    req.rawBody = req.body.toString("utf8");
+    req.body    = JSON.parse(req.rawBody);
+  }
+  next();
+});
+
 
 // CORS — restrict to known origins in production.
 const allowedOrigins = [
@@ -158,7 +180,13 @@ app.use(legalPages);
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
 
-// Auth routes get the strict brute-force rate limiter applied first
+// Webhooks — no rate limiting on this path (Clerk controls delivery)
+app.use("/api/webhooks",      webhookRoutes);
+
+// Profile completion — auth-required but not profile-complete-required
+app.use("/api/profile",       profileRoutes);
+
+// Auth routes: /sync for web + legacy routes for Android
 app.use("/api/auth",          authLimiter, authRoutes);
 
 app.use("/api/gigs",          gigRoutes);
