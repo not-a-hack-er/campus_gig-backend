@@ -8,7 +8,7 @@
 
 const ApiResponse = require("../utils/ApiResponse");
 const ApiError    = require("../utils/ApiError");
-const { createConversation, getMessages } = require("../services/chatService");
+const { createConversation, getMessages, saveMessage } = require("../services/chatService");
 
 // POST /api/chat/conversation — Start a conversation with another user
 // Body: { receiverId }
@@ -33,6 +33,34 @@ const createConversationController = async (req, res, next) => {
   }
 };
 
+// POST /api/chat/conversation/:conversationId/message — Send a message in an existing conversation
+const sendMessageController = async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    const { text } = req.body;
+
+    if (!text || !String(text).trim()) {
+      throw new ApiError(400, 'Message text is required');
+    }
+
+    const Conversation = require('../models/Conversation');
+    const conversation = await Conversation.findById(conversationId).select('participants');
+    if (!conversation) throw new ApiError(404, 'Conversation not found');
+    if (!conversation.participants.some(id => String(id) === String(req.user.id))) {
+      throw new ApiError(403, 'You are not a participant in this conversation');
+    }
+
+    const message = await saveMessage(conversationId, req.user.id, String(text).trim());
+    await message.populate('sender', 'name avatar college');
+
+    // Return the full updated message list so the client can refresh
+    const messages = await getMessages(conversationId);
+    return res.status(201).json(new ApiResponse(true, 'Message Sent', { message, messages }));
+  } catch (error) {
+    next(error);
+  }
+};
+
 // GET /api/chat/messages/:conversationId — Get all messages in a conversation
 const getMessagesController = async (req, res, next) => {
   try {
@@ -49,4 +77,4 @@ const getMessagesController = async (req, res, next) => {
   }
 };
 
-module.exports = { createConversationController, getMessagesController };
+module.exports = { createConversationController, sendMessageController, getMessagesController };
