@@ -24,6 +24,7 @@ const logger         = require("./config/logger");
 const chatSocket     = require("./sockets/chatSocket");
 const presenceSocket = require("./sockets/presenceSocket");
 const { startGigCompletionScheduler } = require("./services/gigCompletionScheduler");
+const { startKeepAlive }             = require("./services/keepAlive");
 
 // ─── Global Safety Net ────────────────────────────────────────────────────────
 // These catch any error that escapes the normal try/catch flow.
@@ -102,6 +103,7 @@ const startServer = async () => {
     // Step 6: Start the gig completion scheduler (auto-approve after 3 days)
     // Must start AFTER DB connection so Mongoose models are ready.
     startGigCompletionScheduler();
+    startKeepAlive(); // Prevent Render free-tier sleep
     const HOST = "0.0.0.0";
     server.listen(env.PORT, HOST, () => {
       const networkInterfaces = os.networkInterfaces();
