@@ -24,7 +24,11 @@ const env = {
   NODE_ENV:         process.env.NODE_ENV    || "development",
   CLIENT_URL:       process.env.CLIENT_URL  || "http://localhost:3000",
   LOG_LEVEL:        process.env.LOG_LEVEL   || "info",
-
+    // Cashfree Payment Gateway (Sandbox)
+  CASHFREE_CLIENT_ID:     process.env.CASHFREE_CLIENT_ID     || null,
+  CASHFREE_CLIENT_SECRET: process.env.CASHFREE_CLIENT_SECRET || null,
+  CASHFREE_BASE_URL:      process.env.CASHFREE_BASE_URL      || "https://sandbox.cashfree.com/pg",
+  CASHFREE_API_VERSION:   process.env.CASHFREE_API_VERSION   || "2025-01-01",
   // ── Optional Services (production scale-out) ───────────────
   // Set these in production to unlock each capability.
   REDIS_URL:                    process.env.REDIS_URL                    || null, // Socket.IO multi-instance scaling

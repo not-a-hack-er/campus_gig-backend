@@ -39,6 +39,7 @@ const reviewRoutes       = require("./routes/reviewRoutes");
 const userRoutes         = require("./routes/userRoutes");
 const messageRoutes      = require("./routes/messageRoutes");
 const feedbackRoutes     = require("./routes/feedbackRoutes");
+const paymentRoutes      = require("./routes/paymentRoutes");
 const legalPages         = require("./routes/legalPages");
 
 const app = express();
@@ -170,6 +171,7 @@ app.use("/api/reviews",       reviewRoutes);
 app.use("/api/users",         userRoutes);
 app.use("/api/messages",      messageRoutes);
 app.use("/api/feedback",      feedbackRoutes);
+app.use("/api/payment",       paymentRoutes);
 
 // ─── 404 Handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {
