@@ -58,7 +58,18 @@ const startServer = async () => {
       cors: {
         origin: (origin, callback) => {
           if (!origin) return callback(null, true); // Mobile apps have no origin
-          if (origin === env.CLIENT_URL) return callback(null, true);
+          const normalizedOrigin = origin.replace(/\/$/, "");
+          const clientOrigins = (env.CLIENT_URL || "")
+            .split(",")
+            .map((url) => url.trim().replace(/\/$/, ""))
+            .filter(Boolean);
+          const allowed = [
+            ...clientOrigins,
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://10.0.2.2:5000",
+          ];
+          if (allowed.includes(normalizedOrigin)) return callback(null, true);
           if (env.NODE_ENV !== "production") return callback(null, true);
           callback(new Error(`Socket.IO CORS: origin ${origin} not allowed`));
         },

@@ -113,17 +113,21 @@ app.use("/api/webhooks", express.raw({ type: "application/json" }), (req, res, n
 });
 
 
-// CORS — restrict to known origins in production.
+// CORS — support single or comma-separated multiple origins in production.
+const clientOrigins = (env.CLIENT_URL || "")
+  .split(",")
+  .map((url) => url.trim().replace(/\/$/, ""))
+  .filter(Boolean);
+
 const allowedOrigins = [
   // Production domains — always allowed
   "https://campusvault.co.in",
   "https://www.campusvault.co.in",
-  // CLIENT_URL from env (supports comma-separated list for flexibility)
-  ...(env.CLIENT_URL ? env.CLIENT_URL.split(",").map((u) => u.trim()) : []),
-  // Android emulator loopback
+  "https://campvault-web.vercel.app",
+  ...clientOrigins,
+  // Android emulator loopback & local dev
   "http://10.0.2.2:5000",
   "http://10.0.2.2:5001",
-  // Local dev
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:3000",
@@ -133,7 +137,8 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, Postman, curl)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    const normalizedOrigin = origin.replace(/\/$/, "");
+    if (allowedOrigins.includes(normalizedOrigin)) return callback(null, true);
     // In development allow all — in production be strict
     if (env.NODE_ENV !== "production") return callback(null, true);
     callback(new Error(`CORS: origin ${origin} not allowed`));
