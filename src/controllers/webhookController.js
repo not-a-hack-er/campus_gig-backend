@@ -92,32 +92,62 @@ const handleClerkWebhook = async (req, res) => {
 
 // ── user.created ──────────────────────────────────────────────────────────────
 // Creates a skeleton User profile in MongoDB with profileComplete: false.
-// Uses upsert so duplicate webhook deliveries are safe.
+// Guards against duplicate accounts:
+//   1. If a user with this clerkUserId already exists → idempotent no-op.
+//   2. If a user with this email already exists (legacy/Android account) →
+//      link the Clerk ID to them instead of creating a duplicate.
+//   3. Otherwise → create a fresh skeleton profile.
 async function handleUserCreated(data) {
   const clerkUserId = data.id;
-  const email       = data.email_addresses?.[0]?.email_address || "";
+  const email       = (data.email_addresses?.[0]?.email_address || "").toLowerCase();
   const name        = [data.first_name, data.last_name].filter(Boolean).join(" ").trim()
                    || email.split("@")[0];
 
-  // findOneAndUpdate with upsert prevents duplicate users if the webhook is
-  // delivered more than once (Clerk guarantees at-least-once delivery).
+  // ── Guard 1: Already linked (idempotent re-delivery) ────────────────────────
+  const existing = await User.findOne({ clerkUserId });
+  if (existing) {
+    logger.info({ clerkUserId, userId: existing._id }, "user.created webhook — user already exists, skipping");
+    return;
+  }
+
+  // ── Guard 2: Email collision — link or transfer Clerk ID ─────────────────
+  // Case A: Email exists with NO clerkUserId (legacy/Android account) → link it.
+  // Case B: Email exists with a DIFFERENT clerkUserId (re-signup via OAuth) → transfer.
+  // Both are safe because Clerk has already verified email ownership.
+  if (email) {
+    const byEmail = await User.findOneAndUpdate(
+      { email, $or: [
+          { clerkUserId: { $exists: false } },          // Case A: legacy account
+          { clerkUserId: { $ne: clerkUserId } },        // Case B: different Clerk ID
+        ]
+      },
+      { $set: { clerkUserId, isVerified: true } },
+      { new: true }
+    );
+    if (byEmail) {
+      logger.info({ clerkUserId, userId: byEmail._id, email }, "user.created webhook — Clerk ID linked/transferred to existing email account");
+      return;
+    }
+  }
+
+  // ── Guard 3: No existing user — create fresh skeleton profile ────────────────
   const user = await User.findOneAndUpdate(
     { clerkUserId },
     {
       $setOnInsert: {
         clerkUserId,
-        email:           email.toLowerCase(),
+        email:           email || `clerk-${clerkUserId}@placeholder.local`,
         name:            name || "CampusVault User",
         profileComplete: false,
-        isVerified:      true,  // Clerk verifies emails before creating users
+        isVerified:      true,
         isActive:        true,
-        role:            "student", // default; user picks final role on profile completion
+        role:            "student",
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
 
-  logger.info({ clerkUserId, userId: user._id }, "User profile created from Clerk webhook");
+  logger.info({ clerkUserId, userId: user._id, email }, "User profile created from Clerk webhook");
 }
 
 // ── user.updated ──────────────────────────────────────────────────────────────

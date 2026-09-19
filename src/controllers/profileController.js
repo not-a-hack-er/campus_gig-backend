@@ -91,9 +91,35 @@ const syncClerkUser = async (req, res, next) => {
       }
     }
 
-    // ── Step 2b: No existing user at all — create a fresh skeleton profile ────
+    // ── Step 2b: Email belongs to an existing Clerk-linked account ──────────
+    // Happens when the user clicks "Sign up with GitHub/Google" again after
+    // already completing their profile — Clerk issues a NEW clerkUserId but
+    // the email is the same. We migrate the new Clerk ID onto the existing
+    // profile so the user keeps their complete data and skips the setup page.
+    if (email) {
+      const existingClerkAccount = await User.findOneAndUpdate(
+        { email, clerkUserId: { $exists: true, $ne: clerkUserId } },
+        { $set: { clerkUserId, isVerified: true } }, // transfer new Clerk ID
+        { new: true }
+      );
+      if (existingClerkAccount) {
+        logger.info(
+          { oldClerkId: existingClerkAccount.clerkUserId, newClerkId: clerkUserId, email },
+          "Clerk ID transferred to existing account (re-signup via OAuth)"
+        );
+        return res.status(200).json(new ApiResponse(true, "Account re-linked to Clerk", {
+          profileComplete: existingClerkAccount.profileComplete,
+          userId:          existingClerkAccount._id,
+          name:            existingClerkAccount.name,
+          email:           existingClerkAccount.email,
+          role:            existingClerkAccount.role,
+          college:         existingClerkAccount.college,
+        }));
+      }
+    }
+
+    // ── Step 2c: No existing user at all — create a fresh skeleton profile ────
     // Use findOneAndUpdate with upsert on clerkUserId (idempotent).
-    // We have already confirmed no email collision at this point.
     const newUser = await User.findOneAndUpdate(
       { clerkUserId },
       {
