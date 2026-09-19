@@ -329,10 +329,14 @@ MONGODB_URI=mongodb://localhost:27017/campus_gig
 JWT_SECRET=your_super_secret_jwt_key_at_least_32_characters_long
 CLIENT_URL=http://localhost:3000
 
-# Optional
+# Authentication (Google & Clerk)
+GOOGLE_CLIENT_ID=405536133969-1nbq5mloe0bk4t4jc5q4aaqdfkm9i5qr.apps.googleusercontent.com
+CLERK_SECRET_KEY=sk_test_...
+CLERK_PUBLISHABLE_KEY=pk_test_...
+
+# Optional Storage & Realtime Scaling
 # REDIS_URL=redis://localhost:6379
 # CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
-# GOOGLE_CLIENT_ID=<your-google-oauth-client-id>
 ```
 
 ### 4. Running the Server

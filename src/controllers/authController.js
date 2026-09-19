@@ -85,3 +85,4 @@ const resetPasswordController = async (req, res, next) => {
 };
 
 module.exports = { register, login, googleLogin, forgotPasswordController, verifyOtpController, resetPasswordController };
+

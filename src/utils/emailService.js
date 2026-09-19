@@ -118,3 +118,4 @@ const sendOtpEmail = async (toEmail, otp) => {
 const isEmailConfigured = () => Boolean((env.SMTP_USER || env.EMAIL_USER) && (env.SMTP_PASS || env.EMAIL_PASS));
 
 module.exports = { sendOtpEmail, isEmailConfigured };
+

@@ -234,9 +234,9 @@ const updateApplicationStatus = async (applicationId, status, callerUserId) => {
 
   // Authorization rules
   if (isApplicant && uppercaseStatus === "WITHDRAWN") {
-    if (application.status.toUpperCase() !== "PENDING") {
-      throw new ApiError(400, "You can only withdraw pending applications");
-    }
+    // State is deliberately checked by the atomic PENDING → WITHDRAWN update
+    // below.  Checking this stale read here turns concurrent attempts into an
+    // inconsistent 400 instead of the correct 409 conflict.
   } else if (!isGigOwner) {
     throw new ApiError(403, "You are not authorized to update this application");
   }

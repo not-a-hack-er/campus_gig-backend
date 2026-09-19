@@ -74,8 +74,16 @@ const syncClerkUser = async (req, res, next) => {
     // The link is safe because the email came from Clerk's verified token.
     if (email) {
       const existingByEmail = await User.findOneAndUpdate(
-        { email, clerkUserId: { $exists: false } }, // only unlinked users
-        { $set: { clerkUserId, isVerified: true } },
+        {
+          email,
+          // Legacy users can have the field absent or explicitly null.  Never
+          // overwrite an identity that is already linked to another Clerk user.
+          $or: [{ clerkUserId: { $exists: false } }, { clerkUserId: null }],
+        },
+        // The Android legacy flow had no profile-completion gate.  Preserving
+        // that access during a verified Clerk link avoids breaking established
+        // accounts while leaving all existing profile data untouched.
+        { $set: { clerkUserId, isVerified: true, profileComplete: true } },
         { new: true }
       );
 
@@ -127,7 +135,10 @@ const syncClerkUser = async (req, res, next) => {
           clerkUserId,
           email:           email || `clerk-${clerkUserId}@placeholder.local`,
           name:            name  || "CampusVault User",
-          profileComplete: false,
+          // Android collects optional profile details after sign-in.  Do not
+          // block a verified first-time Google user from the app before that
+          // optional profile enrichment can be completed.
+          profileComplete: true,
           isVerified:      true,
           isActive:        true,
           role:            "student",

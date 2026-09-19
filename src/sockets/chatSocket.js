@@ -28,6 +28,7 @@
 // ============================================================
 
 const jwt      = require("jsonwebtoken");
+const { verifyToken } = require("@clerk/backend");
 const { env }  = require("../config/env");
 const {
   createConversation,
@@ -44,7 +45,8 @@ const MESSAGE_SENDER_FIELDS = "name avatar college";
 const chatSocket = (io) => {
 
   // ── Authentication Middleware ─────────────────────────────────────────────
-  // Runs before every connection.  Rejects any socket that lacks a valid JWT.
+  // Runs before every connection. Supports Clerk session JWTs and the legacy
+  // CampusVault JWT during the Android migration.
   io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token;
 
@@ -52,26 +54,26 @@ const chatSocket = (io) => {
       return next(new Error("Authentication Required: no token provided"));
     }
 
-    let decoded;
+    let user;
     try {
-      decoded = jwt.verify(token, env.JWT_SECRET);
-    } catch (jwtErr) {
-      const msg = jwtErr.name === "TokenExpiredError"
-        ? "Authentication Required: token expired"
-        : "Authentication Required: invalid token";
-      return next(new Error(msg));
+      const decoded = jwt.verify(token, env.JWT_SECRET);
+      if (decoded.id && typeof decoded.id === "string") {
+        user = await require('../models/User').findById(decoded.id).select('_id isActive');
+      }
+    } catch (_) {
+      // Not a CampusVault JWT; it may be a Clerk session token.
+      try {
+        const clerkToken = await verifyToken(token, { secretKey: env.CLERK_SECRET_KEY });
+        if (clerkToken.sub) {
+          user = await require('../models/User')
+            .findOne({ clerkUserId: clerkToken.sub })
+            .select('_id isActive');
+        }
+      } catch (_) { /* handled below with a generic safe error */ }
     }
 
-    // Guard against tokens with a missing or malformed id claim
-    if (!decoded.id || typeof decoded.id !== "string") {
-      return next(new Error("Authentication Required: malformed token payload"));
-    }
-
-    try {
-      const user = await require('../models/User').findById(decoded.id).select('isActive');
-      if (!user || user.isActive === false) return next(new Error('Account unavailable'));
-    } catch (_) { return next(new Error('Authentication failed')); }
-    socket.user = { id: decoded.id };
+    if (!user || user.isActive === false) return next(new Error('Authentication Required'));
+    socket.user = { id: user._id.toString() };
     next();
   });
 

@@ -49,3 +49,4 @@ router.post("/reset-password",  resetPasswordController);
 router.post("/change-password", protect, changePasswordController);
 
 module.exports = router;
+

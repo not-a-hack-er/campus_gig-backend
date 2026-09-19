@@ -377,3 +377,4 @@ async function resetPassword(resetToken, newPassword) {
 }
 
 module.exports = { registerUser, loginUser, googleAuthUser, forgotPassword, verifyOtp, resetPassword };
+
