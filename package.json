@@ -38,6 +38,7 @@
   "dependencies": {
     "@clerk/express": "^2.1.69",
     "@socket.io/redis-adapter": "^8.3.0",
+    "axios": "^1.20.0",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.11.0",
     "compression": "^1.8.1",
@@ -72,4 +73,3 @@
     "qs": "^6.16.0"
   }
 }
-

@@ -33,7 +33,7 @@ const errorHandler          = require("./middleware/errorHandler");
 const authRoutes         = require("./routes/authRoutes");
 const gigRoutes          = require("./routes/gigRoutes");
 const applicationRoutes  = require("./routes/applicationRoutes");
-const chatRoutes         = require("./routes/chatRoutes");
+const chatRoutes          = require("./routes/chatRoutes");
 const communityRoutes    = require("./routes/communityRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const reviewRoutes       = require("./routes/reviewRoutes");
@@ -43,6 +43,9 @@ const feedbackRoutes     = require("./routes/feedbackRoutes");
 const legalPages         = require("./routes/legalPages");
 const webhookRoutes      = require("./routes/webhookRoutes");
 const profileRoutes      = require("./routes/profileRoutes");
+
+// Cashfree payment routes
+const paymentRoutes      = require("./routes/paymentRoutes");
 
 const app = express();
 
@@ -112,7 +115,6 @@ app.use("/api/webhooks", express.raw({ type: "application/json" }), (req, res, n
   next();
 });
 
-
 // CORS — support single or comma-separated multiple origins in production.
 const clientOrigins = (env.CLIENT_URL || "")
   .split(",")
@@ -125,6 +127,7 @@ const allowedOrigins = [
   "https://www.campusvault.co.in",
   "https://campvault-web.vercel.app",
   ...clientOrigins,
+
   // Android emulator loopback & local dev
   "http://10.0.2.2:5000",
   "http://10.0.2.2:5001",
@@ -137,10 +140,18 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, Postman, curl)
     if (!origin) return callback(null, true);
+
     const normalizedOrigin = origin.replace(/\/$/, "");
-    if (allowedOrigins.includes(normalizedOrigin)) return callback(null, true);
+
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      return callback(null, true);
+    }
+
     // In development allow all — in production be strict
-    if (env.NODE_ENV !== "production") return callback(null, true);
+    if (env.NODE_ENV !== "production") {
+      return callback(null, true);
+    }
+
     callback(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true,
@@ -162,10 +173,16 @@ app.use(mongoSanitize());
 // Only used when CLOUDINARY_URL is not set (local dev mode).
 // In production with Cloudinary, files are served directly from the CDN.
 if (!env.CLOUDINARY_URL) {
-  app.get('/uploads/:folder/:filename', (req, res, next) => {
-    if (env.NODE_ENV !== 'production') return next();
-    return require('./middleware/databaseUpload').serveDatabaseUpload(req, res, next);
+  app.get("/uploads/:folder/:filename", (req, res, next) => {
+    if (env.NODE_ENV !== "production") return next();
+
+    return require("./middleware/databaseUpload").serveDatabaseUpload(
+      req,
+      res,
+      next
+    );
   });
+
   app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 }
 
@@ -178,7 +195,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ─── Rate Limiting ────────────────────────────────────────────────────────────
+// ─── Rate Limiting ───────────────────────────────────────────────────────────
 // Apply the global limiter to all routes (baseline abuse protection)
 app.use(globalLimiter);
 
@@ -191,6 +208,7 @@ app.get("/", (req, res) => {
     version: "1.0.0",
   });
 });
+
 app.use(legalPages);
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
@@ -213,6 +231,9 @@ app.use("/api/reviews",       reviewRoutes);
 app.use("/api/users",         userRoutes);
 app.use("/api/messages",      messageRoutes);
 app.use("/api/feedback",      feedbackRoutes);
+
+// Cashfree payment routes
+app.use("/api/payment",       paymentRoutes);
 
 // ─── 404 Handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {

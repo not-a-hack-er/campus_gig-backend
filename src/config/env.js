@@ -37,6 +37,12 @@ const env = {
   CLERK_PUBLISHABLE_KEY:   process.env.CLERK_PUBLISHABLE_KEY,
   CLERK_WEBHOOK_SECRET:    process.env.CLERK_WEBHOOK_SECRET     || null,
 
+    // ── Cashfree Payment Gateway ────────────────────────────────
+  CASHFREE_CLIENT_ID:      process.env.CASHFREE_CLIENT_ID      || null,
+  CASHFREE_CLIENT_SECRET:  process.env.CASHFREE_CLIENT_SECRET  || null,
+  CASHFREE_BASE_URL:       process.env.CASHFREE_BASE_URL       || "https://sandbox.cashfree.com/pg",
+  CASHFREE_API_VERSION:    process.env.CASHFREE_API_VERSION    || "2025-01-01",
+  
   // ── Legacy JWT (Android App) ───────────────────────────────
   // The Android app still uses custom JWT auth. JWT_SECRET is kept so the
   // protect middleware can verify Android requests until Android migrates to Clerk.
