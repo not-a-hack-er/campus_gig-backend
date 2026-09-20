@@ -46,6 +46,13 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    number: {
+      type: String,
+      default: "",
+      trim: true,
+      match: [/^(?:[6-9]\d{9})?$/, "Number must be empty or a valid 10-digit Indian mobile number"],
+    },
+
     password: {
       type:     String,
       // NOT required — web users authenticate via Clerk and never have a password here.
